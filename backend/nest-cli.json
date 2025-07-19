@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "projects": {
+    "athlete": {
+      "type": "application",
+      "entryFile": "apps/athlete/src/main",
+      "compilerOptions": {
+        "tsConfigPath": "apps/athlete/tsconfig.app.json"
+      }
+    },
+    "auth": {
+      "type": "application",
+      "entryFile": "apps/auth/src/main",
+      "compilerOptions": {
+        "tsConfigPath": "apps/auth/tsconfig.app.json"
+      }
+    },
+    "common": {
+      "type": "library",
+      "entryFile": "libs/common/src/index",
+      "compilerOptions": {
+        "tsConfigPath": "libs/common/tsconfig.lib.json"
+      }
+    },
+    "gateway": {
+      "type": "application",
+      "entryFile": "apps/gateway/src/main",
+      "compilerOptions": {
+        "tsConfigPath": "apps/gateway/tsconfig.app.json"
+      }
+    }
+  },
+  "monorepo": true
+}

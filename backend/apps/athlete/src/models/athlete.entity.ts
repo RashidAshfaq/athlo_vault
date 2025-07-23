@@ -7,28 +7,28 @@ import { Coach } from './coach.entity';
 
 @Entity('athletes')
 export class Athlete extends AbstractEntity {
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 100 , nullable: true })
   fullName: string;
 
-  @Column({ type: 'varchar', length: 15 })
+  @Column({ type: 'varchar', length: 15 , nullable: true })
   phone: string;
 
-  @Column({ type: 'date' })
+  @Column({ type: 'date' , nullable: true })
   dob: Date;
 
   @Column({ type: 'varchar', length: 150, nullable: true })
   location: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 100 , nullable: true })
   primarySport: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 100 , nullable: true })
   positionOrSpeciality: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: 'varchar', length: 100 , nullable: true  })
   organizationName: string;
 
-  @Column({ type: 'int' })
+  @Column({ type: 'int' , nullable: true })
   yearOfExperience: number;
 
   @Column({ type: 'text', nullable: true })

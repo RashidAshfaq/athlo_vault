@@ -1,6 +1,13 @@
 import { AbstractEntity, UserRole } from '@app/common';
 import { Athlete } from 'apps/athlete/src/models/athlete.entity';
-import { Entity, Column, ManyToOne, JoinColumn, OneToMany, OneToOne } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+  OneToOne,
+} from 'typeorm';
 
 export enum AccountType {
   ATHLETE = 'athlete',
@@ -55,6 +62,9 @@ export class User extends AbstractEntity {
   @Column({ type: 'boolean', default: false })
   isApproved: boolean;
 
+  @Column({ type: 'int', nullable: true })
+  deleted_by: number;
+
   @Column({ type: 'boolean', default: false })
   isProfileCompleted: boolean;
 
@@ -65,7 +75,7 @@ export class User extends AbstractEntity {
   @OneToMany(() => User, (user) => user.approved_by)
   approvedUsers: User[];
 
-    @OneToOne(() => Athlete, (athlete) => athlete.user, {
+  @OneToOne(() => Athlete, (athlete) => athlete.user, {
     cascade: true,
   })
   athlete: Athlete;

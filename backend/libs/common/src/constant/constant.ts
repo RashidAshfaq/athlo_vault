@@ -1,4 +1,5 @@
-import { UnprocessableEntityException, ValidationPipe } from "@nestjs/common";
+import { UnprocessableEntityException, ValidationPipe } from '@nestjs/common';
+import { UserRole } from '../roles';
 
 export const VALIDATION_PIPE = new ValidationPipe({
   whitelist: true,
@@ -14,7 +15,6 @@ export const VALIDATION_PIPE = new ValidationPipe({
   },
 });
 
-
 export type Response = {
   success: boolean;
   message: string;
@@ -25,4 +25,20 @@ export enum GenderType {
   MALE = 'M',
   FEMALE = 'F',
   OTHER = 'O',
+}
+
+export function formatUsersData(user: any) {
+  if (user.role === UserRole.ATHLETE) {
+    const { athlete, ...usersData } = user || {};
+    let cleanAthlete = athlete;
+    if (athlete && athlete.user) {
+      const { user: _athleteUser, ...athleteRest } = athlete;
+      cleanAthlete = athleteRest;
+    }
+    return {
+      userId: user.id,
+      ...usersData,
+      ...cleanAthlete,
+    };
+  }
 }

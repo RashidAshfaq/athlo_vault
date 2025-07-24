@@ -1,34 +1,42 @@
 import { AbstractEntity } from '@app/common';
 import { User } from 'apps/auth/src/models/users.entity';
-import { Entity, Column, ManyToOne, OneToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  OneToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
 import { FundingGoal } from './athlete_funding.entity';
 import { AthleteFollowers } from './athlete_followers.entity';
 import { Coach } from './coach.entity';
+import { CareerGoal } from './career_goals.entity';
 
 @Entity('athletes')
 export class Athlete extends AbstractEntity {
-  @Column({ type: 'varchar', length: 100 , nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   fullName: string;
 
-  @Column({ type: 'varchar', length: 15 , nullable: true })
+  @Column({ type: 'varchar', length: 15, nullable: true })
   phone: string;
 
-  @Column({ type: 'date' , nullable: true })
+  @Column({ type: 'date', nullable: true })
   dob: Date;
 
   @Column({ type: 'varchar', length: 150, nullable: true })
   location: string;
 
-  @Column({ type: 'varchar', length: 100 , nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   primarySport: string;
 
-  @Column({ type: 'varchar', length: 100 , nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   positionOrSpeciality: string;
 
-  @Column({ type: 'varchar', length: 100 , nullable: true  })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   organizationName: string;
 
-  @Column({ type: 'int' , nullable: true })
+  @Column({ type: 'int', nullable: true })
   yearOfExperience: number;
 
   @Column({ type: 'text', nullable: true })
@@ -99,4 +107,9 @@ export class Athlete extends AbstractEntity {
     name: 'coachId',
   })
   coach: Coach;
+
+  @OneToMany(() => CareerGoal, (careerGoal) => careerGoal.athlete, {
+    cascade: true,
+  })
+  careerGoals: CareerGoal[];
 }

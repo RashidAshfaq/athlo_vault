@@ -20,6 +20,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { CoachRepository } from './athlete_coach.repository';
 import { AthleteFollowersRepository } from './athlete_followers.repository';
 import { FundingGoalRepository } from './funding_goal.repository';
+import { CareerGoalsModule } from './career_goals/career_goals.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { FundingGoalRepository } from './funding_goal.repository';
         inject: [ConfigService],
       },
     ]),
+    CareerGoalsModule,
   ],
   controllers: [AthleteController, AthleteMessageHandler],
   providers: [AthleteService, AthleteRepository, CoachRepository, AthleteFollowersRepository, FundingGoalRepository],

@@ -1,4 +1,9 @@
-import { AUTH_SERVICE, CustomLogger, Response } from '@app/common';
+import {
+  AUTH_SERVICE,
+  CustomLogger,
+  formatUsersData,
+  Response,
+} from '@app/common';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { AthleteRepository } from './athlete.repository';
 import { Athlete } from './models/athlete.entity';
@@ -120,17 +125,53 @@ export class AthleteService {
 
     this.patchDefined(athlete, dto);
     const updated = await this.athleteRepo.update(athlete);
+    const data = await this.formatAthleteProfile(updated);
     return {
       message: 'Athlete profile fully updated.',
-      data: updated,
+      data: data,
     };
   }
 
   private patchDefined<T>(entity: T, dto: Partial<T>) {
-  Object.entries(dto).forEach(([key, value]) => {
-    if (value !== undefined) {
-      (entity as any)[key] = value;
-    }
-  });
-}
+    Object.entries(dto).forEach(([key, value]) => {
+      if (value !== undefined) {
+        (entity as any)[key] = value;
+      }
+    });
+  }
+
+  private async formatAthleteProfile(athlete: any) {
+    const { user, ...athleteData } = athlete;
+    const {
+      id: userId,
+      firstName,
+      lastName,
+      accountType,
+      profile_picture,
+      city,
+      state,
+      country,
+      zip,
+      role,
+      email,
+      isApproved,
+      isProfileCompleted,
+    } = user || {};
+    return {
+      userId, 
+      firstName,
+      lastName,
+      accountType,
+      profile_picture,
+      city,
+      state,
+      country,
+      zip,
+      role,
+      email,
+      isApproved,
+      isProfileCompleted,
+      ...athleteData, 
+    };
+  }
 }

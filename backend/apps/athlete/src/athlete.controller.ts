@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { AthleteService } from './athlete.service';
 import {
+  formatUsersData,
   JwtAuthGuard,
   LoggingInterceptor,
   Roles,
@@ -35,5 +36,17 @@ export class AthleteController {
   ) {
     const athlete = req?.user?.athlete;
     return this.athleteService.updateFullProfile(athlete, dto, files);
+  }
+
+  @Roles(UserRole.ATHLETE)
+  @Get('profile')
+  async getProfile(@Req() req: any)
+  {
+    const data = await formatUsersData(req?.user);
+    return {
+      message: 'Athlete Profile Fetched Successfully.',
+      data: data
+    }
+
   }
 }

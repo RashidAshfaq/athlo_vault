@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthRepository } from './auth.repository';
-import { ATHLETE_SERVICE, CustomLogger, PasswordService, UserRole, Response } from '@app/common';
+import { ATHLETE_SERVICE, CustomLogger, PasswordService, UserRole, Response, formatUsersData } from '@app/common';
 import { SignupDto } from './dtos/signup.dto';
 import { AccountType, User } from './models/users.entity';
 import { JwtService } from '@nestjs/jwt';
@@ -97,23 +97,12 @@ export class AuthService {
       secret,
       expiresIn: refreshIn,
     });
-    const data =  await this.formatUsersData(user);
+    const data =  await formatUsersData(user);
     return {
       ...data,
       access_token,
       refresh_token,
     };
-  }
-
-  async formatUsersData(user: User) {
-    if (user.role === UserRole.ATHLETE) {
-      const { athlete, ...usersData } = user || {};
-      return {
-        userId: user.id,
-        ...usersData,
-        ...athlete,
-      };
-    }
   }
 
   async validateToken(token: string): Promise<User> {

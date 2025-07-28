@@ -12,6 +12,7 @@ import { FundingGoal } from './athlete_funding.entity';
 import { AthleteFollowers } from './athlete_followers.entity';
 import { Coach } from './coach.entity';
 import { CareerGoal } from './career_goals.entity';
+import { PurchaseRequest } from './purchase_request.entity';
 
 @Entity('athletes')
 export class Athlete extends AbstractEntity {
@@ -112,4 +113,9 @@ export class Athlete extends AbstractEntity {
     cascade: true,
   })
   careerGoals: CareerGoal[];
+
+  @OneToMany(() => PurchaseRequest, (request) => request.athlete, {
+    cascade: true,
+  })
+  purchase_requests: PurchaseRequest[];
 }

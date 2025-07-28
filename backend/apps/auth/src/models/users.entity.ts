@@ -1,5 +1,6 @@
 import { AbstractEntity, UserRole } from '@app/common';
 import { Athlete } from 'apps/athlete/src/models/athlete.entity';
+import { PurchaseRequest } from 'apps/athlete/src/models/purchase_request.entity';
 import {
   Entity,
   Column,
@@ -79,4 +80,9 @@ export class User extends AbstractEntity {
     cascade: true,
   })
   athlete: Athlete;
+
+  @OneToMany(() => PurchaseRequest, (user) => user.approvedBy, {
+    cascade: true,
+  })
+  user: PurchaseRequest[];
 }

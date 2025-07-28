@@ -21,6 +21,7 @@ import { CoachRepository } from './athlete_coach.repository';
 import { AthleteFollowersRepository } from './athlete_followers.repository';
 import { FundingGoalRepository } from './funding_goal.repository';
 import { CareerGoalsModule } from './career_goals/career_goals.module';
+import { PurchaseRequestModule } from './purchase_request/purchase_request.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { CareerGoalsModule } from './career_goals/career_goals.module';
       },
     ]),
     CareerGoalsModule,
+    PurchaseRequestModule,
   ],
   controllers: [AthleteController, AthleteMessageHandler],
   providers: [AthleteService, AthleteRepository, CoachRepository, AthleteFollowersRepository, FundingGoalRepository],

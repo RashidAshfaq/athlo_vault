@@ -19,6 +19,10 @@ export class CoachRepository extends AbstractRepository<Coach> {
     return this.coachRepository.save(entity);
   }
 
+    async save(entity: Coach): Promise<Coach> {
+    return this.coachRepository.save(entity);
+  }
+
   async findCoach(where: FindOptionsWhere<Coach>): Promise<Coach | null> {
     try {
       return await this.coachRepository.findOne({ where });

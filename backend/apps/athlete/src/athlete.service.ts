@@ -76,18 +76,25 @@ export class AthleteService {
       athlete.proofOfAthleteStatus = fileMap['proofOfAthleteStatus'].filename;
     // 3. Handle nested entities
     if (dto.coach) {
-      if (athlete?.coach && athlete?.coach?.id) {
-        const coach = await this.coachRepo.findOne({id: athlete.coach.id});
-        Object.assign(coach, dto.coach);
-        await this.coachRepo.update(coach);
-        athlete.coach = coach;
-      } else {
-        let coach;
-        if (dto.coach?.email) {
-          coach = await this.coachRepo.findCoach({ email: dto?.coach?.email });
-        } else {
-          coach = await this.coachRepo.create(dto.coach);
+      if (athlete?.coach?.id) {
+        const coach = await this.coachRepo.findCoach({ id: athlete.coach.id });
+        if (coach) {
+          Object.assign(coach, dto.coach);
+          await this.coachRepo.update(coach);
+          athlete.coach = coach;
         }
+      } else {
+        let coach: Coach | null = null;
+
+        if (dto.coach.email) {
+          coach = await this.coachRepo.findCoach({ email: dto.coach.email });
+        }
+
+        if (!coach) {
+          coach = await this.coachRepo.create(dto.coach);
+          await this.coachRepo.save(coach);
+        }
+
         athlete.coach = coach;
       }
     }
@@ -119,6 +126,13 @@ export class AthleteService {
         athlete.fundingGoal = fundingGoal;
       }
     }
+    if (dto.fullName) {
+      const [firstName, ...rest] = dto.fullName.trim().split(' ');
+      const lastName = rest.join(' '); 
+      athlete.user.firstName = firstName ?? athlete?.user?.firstName;
+      athlete.user.lastName = lastName ?? athlete?.user?.lastName;
+    }
+
     if (athlete.user) {
       athlete.user.isProfileCompleted = true;
       const user: Response = await lastValueFrom(
@@ -127,6 +141,31 @@ export class AthleteService {
       if (!user.success) throw new Error(user.message);
       this.logger.log('Athlete User Profile Update Successfully.');
     }
+    // this.patchDefined(athlete, dto);
+    athlete.primarySport = dto?.primarySport ?? athlete.primarySport;
+    athlete.dob = dto?.dob ?? athlete.dob;
+    athlete.positionOrSpeciality =
+      dto?.positionOrSpeciality ?? athlete.positionOrSpeciality;
+    athlete.organizationName =
+      dto?.organizationName ?? athlete.organizationName;
+    athlete.yearOfExperience =
+      dto?.yearOfExperience ?? athlete.yearOfExperience;
+    athlete.keyAchievements = dto?.keyAchievements ?? athlete.keyAchievements;
+    athlete.currentPerformance =
+      dto.currentPerformance ?? athlete.currentPerformance;
+    athlete.proofOfAthleteStatus =
+      dto?.proofOfAthleteStatus ?? athlete.proofOfAthleteStatus;
+    athlete.felonyConviction =
+      dto?.felonyConviction ?? athlete.felonyConviction;
+    athlete.felonyDescription =
+      dto?.felonyDescription ?? athlete.felonyDescription;
+    athlete.height = dto?.height ?? athlete.height;
+    athlete.weight = dto?.weight ?? athlete.weight;
+    athlete.biography = dto?.biography ?? athlete.biography;
+    athlete.about = dto?.about ?? athlete.about;
+    athlete.fullName = dto?.fullName ?? athlete.fullName;
+    athlete.phone = dto?.phone ?? athlete.phone;
+
     const updated = await this.athleteRepo.update(athlete);
     const data = await this.formatAthleteProfile(updated);
     return {

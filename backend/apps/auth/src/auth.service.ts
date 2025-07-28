@@ -49,16 +49,19 @@ export class AuthService {
     user.isProfileCompleted = false;
 
     const savedUser = await this.authRepo.create(user);
+    let athlete = null;
     if(savedUser.role === UserRole.ATHLETE) {
-    const athlete: Response = await lastValueFrom(
+    const response: Response = await lastValueFrom(
         this.athleteServiceClient.send('saved_athlete_profile', savedUser),
       );
-    if (!athlete.success) throw new Error(athlete.message);
+    if (!response?.success) throw new Error(response?.message);
     this.logger.log('Athlete Profile Saved Successfully.')
+    athlete = response.data;
     }
+    const data = await this.getUsersData(athlete);
     return {
       message: 'User created successfully',
-      data: savedUser,
+      data: data,
     };
   }
 

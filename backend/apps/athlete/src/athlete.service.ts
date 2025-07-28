@@ -77,21 +77,26 @@ export class AthleteService {
     // 3. Handle nested entities
     if (dto.coach) {
       if (athlete?.coach && athlete?.coach?.id) {
-        const coach = await this.coachRepo.findOne(athlete.coach.id);
+        const coach = await this.coachRepo.findOne({id: athlete.coach.id});
         Object.assign(coach, dto.coach);
         await this.coachRepo.update(coach);
         athlete.coach = coach;
       } else {
-        const coach = await this.coachRepo.create(dto.coach);
+        let coach;
+        if (dto.coach?.email) {
+          coach = await this.coachRepo.findCoach({ email: dto?.coach?.email });
+        } else {
+          coach = await this.coachRepo.create(dto.coach);
+        }
         athlete.coach = coach;
       }
     }
 
     if (dto.socialMedia) {
       if (athlete?.socialMedia && athlete?.socialMedia?.id) {
-        const followers = await this.followersRepo.findOne(
-          athlete.socialMedia.id,
-        );
+        const followers = await this.followersRepo.findOne({
+          id: athlete.socialMedia.id,
+        });
         Object.assign(followers, dto.socialMedia);
         await this.followersRepo.update(followers);
         athlete.socialMedia = followers;
@@ -103,9 +108,9 @@ export class AthleteService {
 
     if (dto.fundingGoal) {
       if (athlete?.fundingGoal && athlete?.fundingGoal?.id) {
-        const fundingGoal = await this.fundingGoalRepo.findOne(
-          athlete.fundingGoal.id,
-        );
+        const fundingGoal = await this.fundingGoalRepo.findOne({
+          id: athlete.fundingGoal.id,
+        });
         Object.assign(fundingGoal, dto.fundingGoal);
         await this.fundingGoalRepo.update(fundingGoal);
         athlete.fundingGoal = fundingGoal;
@@ -122,8 +127,6 @@ export class AthleteService {
       if (!user.success) throw new Error(user.message);
       this.logger.log('Athlete User Profile Update Successfully.');
     }
-
-    this.patchDefined(athlete, dto);
     const updated = await this.athleteRepo.update(athlete);
     const data = await this.formatAthleteProfile(updated);
     return {
@@ -158,7 +161,7 @@ export class AthleteService {
       isProfileCompleted,
     } = user || {};
     return {
-      userId, 
+      userId,
       firstName,
       lastName,
       accountType,
@@ -171,7 +174,7 @@ export class AthleteService {
       email,
       isApproved,
       isProfileCompleted,
-      ...athleteData, 
+      ...athleteData,
     };
   }
 }

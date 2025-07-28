@@ -41,4 +41,12 @@ export function formatUsersData(user: any) {
       ...cleanAthlete,
     };
   }
+  if(user.user){
+     const { user: _athleteUser, ...athleteRest } = user;
+     return {
+        userId: user.user.id,
+        ...user.user,
+        ...athleteRest,
+     }
+  }
 }

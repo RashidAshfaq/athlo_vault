@@ -30,7 +30,7 @@ export class AuthRepository extends AbstractRepository<User> {
     const users = await this.userRepository.find({
       where,
       relations: [
-        'athlete', 'athlete.coach', 'athlete.fundingGoal', 'athlete.socialMedia', 'athlete.user'
+        'athlete', 'athlete.coach', 'athlete.fundingGoal', 'athlete.socialMedia', 'athlete.user', 'investor', 'investor.user'
       ],
     });
     // Check if any user has `deleted_by`

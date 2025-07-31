@@ -1,6 +1,7 @@
 import {
   AUTH_SERVICE,
   CustomLogger,
+  formatProfile,
   formatUsersData,
   Response,
 } from '@app/common';
@@ -9,8 +10,6 @@ import { AthleteRepository } from './athlete.repository';
 import { Athlete } from './models/athlete.entity';
 import { UpdateAthleteProfileDto } from './dtos/update-athlete-profile.dto';
 import { Coach } from './models/coach.entity';
-import { AthleteFollowers } from './models/athlete_followers.entity';
-import { FundingGoal } from './models/athlete_funding.entity';
 import { CoachRepository } from './athlete_coach.repository';
 import { AthleteFollowersRepository } from './athlete_followers.repository';
 import { FundingGoalRepository } from './funding_goal.repository';
@@ -167,7 +166,7 @@ export class AthleteService {
     athlete.phone = dto?.phone ?? athlete.phone;
 
     const updated = await this.athleteRepo.update(athlete);
-    const data = await this.formatAthleteProfile(updated);
+    const data = await formatProfile(updated);
     return {
       message: 'Athlete profile fully updated.',
       data: data,
@@ -182,38 +181,73 @@ export class AthleteService {
     });
   }
 
-  private async formatAthleteProfile(athlete: any) {
-    const { user, ...athleteData } = athlete;
-    const {
-      id: userId,
-      firstName,
-      lastName,
-      accountType,
-      profile_picture,
-      city,
-      state,
-      country,
-      zip,
-      role,
-      email,
-      isApproved,
-      isProfileCompleted,
-    } = user || {};
-    return {
-      userId,
-      firstName,
-      lastName,
-      accountType,
-      profile_picture,
-      city,
-      state,
-      country,
-      zip,
-      role,
-      email,
-      isApproved,
-      isProfileCompleted,
-      ...athleteData,
-    };
+
+
+
+  async getAthleteDashboard(athlete: any) {
+  // Basic Info Check
+  const basicInfoChecks = [
+    !!athlete.fullName,
+    !!athlete.phone,
+    !!athlete.user?.email,
+    !!athlete.dob,
+    !!athlete.user?.city,
+    !!athlete.user?.state,
+    !!athlete.user?.country,
+    !!athlete.user?.zip,
+  ];
+  const basicInfo = basicInfoChecks.every(Boolean);
+
+  // Athletic Details Check
+  const athleticDetailsChecks = [
+    !!athlete.primarySport,
+    !!athlete.positionOrSpeciality,
+    !!athlete.organizationName,
+    athlete.yearOfExperience != null,
+    !!athlete.keyAchievements,
+    !!athlete.currentPerformance,
+    athlete.height != null,
+    athlete.weight != null,
+    !!athlete.biography,
+    !!athlete.about,
+  ];
+  const athleticDetails = athleticDetailsChecks.every(Boolean);
+
+  // Coach Info
+  const coach = athlete.coach;
+  const coachInfoChecks = [
+    !!coach?.name,
+    !!coach?.email,
+    !!coach?.phone,
+    coach?.yearOfWorkTogether != null,
+    !!coach?.achievementAndBackground,
+  ];
+  const coachInformation = coachInfoChecks.every(Boolean);
+
+  // Media Uploads Check
+  const mediaChecks = [
+    !!athlete.user?.profile_picture,
+    !!athlete.coverPhoto,
+    !!athlete.governmentId,
+    !!athlete.proofOfAthleteStatus,
+  ];
+  const mediaUpload = mediaChecks.every(Boolean);
+
+  // Profile completion logic
+  const checks = [basicInfo, athleticDetails, coachInformation, mediaUpload];
+  const completedSections = checks.filter(Boolean).length;
+  const completionPercentage = Math.round((completedSections / checks.length) * 100);
+
+  // Detailed checklist for FE
+  return {
+    profileCompletion: completionPercentage,
+    checklist: {
+      basicInfo,
+      athleticDetails,
+      coachInformation,
+      mediaUpload
+    },
   }
+}
+
 }

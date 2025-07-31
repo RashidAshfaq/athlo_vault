@@ -5,7 +5,15 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthRepository } from './auth.repository';
-import { ATHLETE_SERVICE, CustomLogger, PasswordService, UserRole, Response, formatUsersData } from '@app/common';
+import {
+  ATHLETE_SERVICE,
+  CustomLogger,
+  PasswordService,
+  UserRole,
+  Response,
+  formatUsersData,
+  INVESTOR_SERVICE,
+} from '@app/common';
 import { SignupDto } from './dtos/signup.dto';
 import { AccountType, User } from './models/users.entity';
 import { JwtService } from '@nestjs/jwt';
@@ -30,6 +38,8 @@ export class AuthService {
     private readonly configService: ConfigService,
     @Inject(ATHLETE_SERVICE)
     private readonly athleteServiceClient: ClientProxy,
+    @Inject(INVESTOR_SERVICE)
+    private readonly investorServiceClient: ClientProxy,
   ) {}
 
   async signup(dto: SignupDto): Promise<any> {
@@ -49,16 +59,23 @@ export class AuthService {
     user.isProfileCompleted = false;
 
     const savedUser = await this.authRepo.create(user);
-    let athlete = null;
-    if(savedUser.role === UserRole.ATHLETE) {
-    const response: Response = await lastValueFrom(
+    let userData = null;
+    if (savedUser.role === UserRole.ATHLETE) {
+      const response: Response = await lastValueFrom(
         this.athleteServiceClient.send('saved_athlete_profile', savedUser),
       );
-    if (!response?.success) throw new Error(response?.message);
-    this.logger.log('Athlete Profile Saved Successfully.')
-    athlete = response.data;
+      if (!response?.success) throw new Error(response?.message);
+      this.logger.log('Athlete Profile Saved Successfully.');
+      userData = response.data;
+    } else if (savedUser.role === UserRole.INVESTOR) {
+      const response: Response = await lastValueFrom(
+        this.investorServiceClient.send('saved_investor_profile', savedUser),
+      );
+      if (!response?.success) throw new Error(response?.message);
+      this.logger.log('Investor Profile Saved Successfully.');
+      userData = response.data;
     }
-    const data = await this.getUsersData(athlete);
+    const data = await this.getUsersData(userData);
     return {
       message: 'User created successfully',
       data: data,
@@ -100,7 +117,7 @@ export class AuthService {
       secret,
       expiresIn: refreshIn,
     });
-    const data =  await formatUsersData(user);
+    const data = await formatUsersData(user);
     return {
       ...data,
       access_token,
@@ -142,7 +159,7 @@ export class AuthService {
     }
   }
 
-    async refreshAccessToken(refreshToken: string): Promise<any> {
+  async refreshAccessToken(refreshToken: string): Promise<any> {
     try {
       const token = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_SECRET'),

@@ -1,27 +1,19 @@
 import { Module } from '@nestjs/common';
-import { AthleteController } from './athlete.controller';
-import { AthleteService } from './athlete.service';
-import { AUTH_SERVICE, DatabaseModule, LoggerModule } from '@app/common';
+import { InvestorController } from './investor.controller';
+import { InvestorService } from './investor.service';
+import { MulterModule } from '@nestjs/platform-express';
+import { FileUtilsModule } from '@app/common/file_utility';
+import { FileUtilsService } from '@app/common/file_utility/file-utils.service';
+import { diskStorage } from 'multer';
 import { join } from 'path';
 import * as path from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AthleteMessageHandler } from './athlete.message_handler';
-import { AthleteRepository } from './athlete.repository';
+import { AUTH_SERVICE, DatabaseModule, LoggerModule } from '@app/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Athlete } from './models/athlete.entity';
-import { MulterModule } from '@nestjs/platform-express';
-import { FileUtilsService } from '@app/common/file_utility/file-utils.service';
-import { FileUtilsModule } from '@app/common/file_utility';
-import { diskStorage } from 'multer';
-import { Coach } from './models/coach.entity';
-import { FundingGoal } from './models/athlete_funding.entity';
-import { AthleteFollowers } from './models/athlete_followers.entity';
+import { Investor } from './models/investor.entity';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { CoachRepository } from './athlete_coach.repository';
-import { AthleteFollowersRepository } from './athlete_followers.repository';
-import { FundingGoalRepository } from './funding_goal.repository';
-import { CareerGoalsModule } from './career_goals/career_goals.module';
-import { PurchaseRequestModule } from './purchase_request/purchase_request.module';
+import { InvestorRepository } from './investor.repository';
+import { InvestorMessageHandler } from './investor.message_handler';
 
 @Module({
   imports: [
@@ -52,7 +44,7 @@ import { PurchaseRequestModule } from './purchase_request/purchase_request.modul
     }),
     LoggerModule,
     FileUtilsModule,
-    TypeOrmModule.forFeature([Athlete, Coach, FundingGoal, AthleteFollowers]),
+    TypeOrmModule.forFeature([Investor]),
     DatabaseModule,
     ClientsModule.registerAsync([
       {
@@ -67,11 +59,9 @@ import { PurchaseRequestModule } from './purchase_request/purchase_request.modul
         inject: [ConfigService],
       },
     ]),
-    CareerGoalsModule,
-    PurchaseRequestModule,
   ],
-  controllers: [AthleteController, AthleteMessageHandler],
-  providers: [AthleteService, AthleteRepository, CoachRepository, AthleteFollowersRepository, FundingGoalRepository],
-  exports: [AthleteRepository],
+  controllers: [InvestorController, InvestorMessageHandler],
+  providers: [InvestorService, InvestorRepository],
+  exports: [InvestorRepository, InvestorService],
 })
-export class AthleteModule {}
+export class InvestorModule {}

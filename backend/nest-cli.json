@@ -29,6 +29,13 @@
       "compilerOptions": {
         "tsConfigPath": "apps/gateway/tsconfig.app.json"
       }
+    },
+    "investor": {
+      "type": "application",
+      "entryFile": "apps/investor/src/main",
+      "compilerOptions": {
+        "tsConfigPath": "apps/investor/tsconfig.app.json"
+      }
     }
   },
   "monorepo": true

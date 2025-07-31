@@ -40,13 +40,24 @@ export class AthleteController {
 
   @Roles(UserRole.ATHLETE)
   @Get('profile')
-  async getProfile(@Req() req: any)
-  {
+  async getProfile(@Req() req: any) {
     const data = await formatUsersData(req?.user);
     return {
       message: 'Athlete Profile Fetched Successfully.',
-      data: data
-    }
+      data: data,
+    };
+  }
 
+  @Roles(UserRole.ATHLETE)
+  @Get('dashboard')
+  async getDashboard(@Req() req: any) {
+    const athlete = req?.user?.athlete;
+    if (!athlete) throw new Error('Athlete not found');
+
+    const data = await this.athleteService.getAthleteDashboard(athlete);
+    return {
+      message: 'Athlete Dashboard Fetched Successfully.',
+      data,
+    };
   }
 }

@@ -40,13 +40,59 @@ export function formatUsersData(user: any) {
       ...usersData,
       ...cleanAthlete,
     };
+  } else if (user.user) {
+    const { user: _athleteUser, ...athleteRest } = user;
+    return {
+      userId: user.user.id,
+      ...user.user,
+      ...athleteRest,
+    };
+  } else if (user.role === UserRole.INVESTOR) {
+    const { investor, athlete: _athlete, ...usersData } = user || {};
+    let cleanInvestor = investor;
+    if (investor && investor.user) {
+      const { user: _investorUser, ...investorRest } = investor;
+      cleanInvestor = investorRest;
+    }
+    return {
+      userId: user.id,
+      ...usersData,
+      ...cleanInvestor,
+    };
   }
-  if(user.user){
-     const { user: _athleteUser, ...athleteRest } = user;
-     return {
-        userId: user.user.id,
-        ...user.user,
-        ...athleteRest,
-     }
-  }
+}
+
+export function formatProfile(data: any) {
+  const { user, ...profileData } = data;
+  const {
+    id: userId,
+    firstName,
+    lastName,
+    accountType,
+    profile_picture,
+    city,
+    state,
+    country,
+    zip,
+    role,
+    email,
+    isApproved,
+    isProfileCompleted,
+  } = user || {};
+  return {
+    userId,
+    firstName,
+    lastName,
+    accountType,
+    profile_picture,
+    city,
+    state,
+    country,
+    zip,
+    role,
+    email,
+    isApproved,
+    isProfileCompleted,
+    ...profileData,
+  };
 }

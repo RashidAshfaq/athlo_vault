@@ -33,6 +33,7 @@ import { PurchaseRequestRepository } from './purchase_request.repository';
       ]),
     ],
   controllers: [PurchaseRequestController],
-  providers: [PurchaseRequestService, PurchaseRequestRepository]
+  providers: [PurchaseRequestService, PurchaseRequestRepository],
+  exports: [PurchaseRequestService]
 })
 export class PurchaseRequestModule {}

@@ -15,6 +15,7 @@ import { AthleteFollowersRepository } from './athlete_followers.repository';
 import { FundingGoalRepository } from './funding_goal.repository';
 import { ClientProxy } from '@nestjs/microservices';
 import { lastValueFrom } from 'rxjs';
+import { PurchaseRequestService } from './purchase_request/purchase_request.service';
 
 @Injectable()
 export class AthleteService {
@@ -24,6 +25,7 @@ export class AthleteService {
     private readonly coachRepo: CoachRepository,
     private readonly followersRepo: AthleteFollowersRepository,
     private readonly fundingGoalRepo: FundingGoalRepository,
+    private readonly requestService: PurchaseRequestService,
     @Inject(AUTH_SERVICE)
     private readonly authServiceClient: ClientProxy,
   ) {}
@@ -127,7 +129,7 @@ export class AthleteService {
     }
     if (dto.fullName) {
       const [firstName, ...rest] = dto.fullName.trim().split(' ');
-      const lastName = rest.join(' '); 
+      const lastName = rest.join(' ');
       athlete.user.firstName = firstName ?? athlete?.user?.firstName;
       athlete.user.lastName = lastName ?? athlete?.user?.lastName;
     }
@@ -181,73 +183,85 @@ export class AthleteService {
     });
   }
 
-
-
-
   async getAthleteDashboard(athlete: any) {
-  // Basic Info Check
-  const basicInfoChecks = [
-    !!athlete.fullName,
-    !!athlete.phone,
-    !!athlete.user?.email,
-    !!athlete.dob,
-    !!athlete.user?.city,
-    !!athlete.user?.state,
-    !!athlete.user?.country,
-    !!athlete.user?.zip,
-  ];
-  const basicInfo = basicInfoChecks.every(Boolean);
+    // Basic Info Check
+    const basicInfoChecks = [
+      !!athlete.fullName,
+      !!athlete.phone,
+      !!athlete.user?.email,
+      !!athlete.dob,
+      !!athlete.user?.city,
+      !!athlete.user?.state,
+      !!athlete.user?.country,
+      !!athlete.user?.zip,
+    ];
+    const basicInfo = basicInfoChecks.every(Boolean);
 
-  // Athletic Details Check
-  const athleticDetailsChecks = [
-    !!athlete.primarySport,
-    !!athlete.positionOrSpeciality,
-    !!athlete.organizationName,
-    athlete.yearOfExperience != null,
-    !!athlete.keyAchievements,
-    !!athlete.currentPerformance,
-    athlete.height != null,
-    athlete.weight != null,
-    !!athlete.biography,
-    !!athlete.about,
-  ];
-  const athleticDetails = athleticDetailsChecks.every(Boolean);
+    // Athletic Details Check
+    const athleticDetailsChecks = [
+      !!athlete.primarySport,
+      !!athlete.positionOrSpeciality,
+      !!athlete.organizationName,
+      athlete.yearOfExperience != null,
+      !!athlete.keyAchievements,
+      !!athlete.currentPerformance,
+      athlete.height != null,
+      athlete.weight != null,
+      !!athlete.biography,
+      !!athlete.about,
+    ];
+    const athleticDetails = athleticDetailsChecks.every(Boolean);
 
-  // Coach Info
-  const coach = athlete.coach;
-  const coachInfoChecks = [
-    !!coach?.name,
-    !!coach?.email,
-    !!coach?.phone,
-    coach?.yearOfWorkTogether != null,
-    !!coach?.achievementAndBackground,
-  ];
-  const coachInformation = coachInfoChecks.every(Boolean);
+    // Coach Info
+    const coach = athlete.coach;
+    const coachInfoChecks = [
+      !!coach?.name,
+      !!coach?.email,
+      !!coach?.phone,
+      coach?.yearOfWorkTogether != null,
+      !!coach?.achievementAndBackground,
+    ];
+    const coachInformation = coachInfoChecks.every(Boolean);
 
-  // Media Uploads Check
-  const mediaChecks = [
-    !!athlete.user?.profile_picture,
-    !!athlete.coverPhoto,
-    !!athlete.governmentId,
-    !!athlete.proofOfAthleteStatus,
-  ];
-  const mediaUpload = mediaChecks.every(Boolean);
+    // Media Uploads Check
+    const mediaChecks = [
+      !!athlete.user?.profile_picture,
+      !!athlete.coverPhoto,
+      !!athlete.governmentId,
+      !!athlete.proofOfAthleteStatus,
+    ];
+    const mediaUpload = mediaChecks.every(Boolean);
 
-  // Profile completion logic
-  const checks = [basicInfo, athleticDetails, coachInformation, mediaUpload];
-  const completedSections = checks.filter(Boolean).length;
-  const completionPercentage = Math.round((completedSections / checks.length) * 100);
+    // Profile completion logic
+    const checks = [basicInfo, athleticDetails, coachInformation, mediaUpload];
+    const completedSections = checks.filter(Boolean).length;
+    const completionPercentage = Math.round(
+      (completedSections / checks.length) * 100,
+    );
 
-  // Detailed checklist for FE
-  return {
-    profileCompletion: completionPercentage,
-    checklist: {
-      basicInfo,
-      athleticDetails,
-      coachInformation,
-      mediaUpload
-    },
+    // Detailed checklist for FE
+    return {
+      profileCompletion: completionPercentage,
+      checklist: {
+        basicInfo,
+        athleticDetails,
+        coachInformation,
+        mediaUpload,
+      },
+    };
   }
-}
 
+  async getPendingPurchaseRequestCount() {
+    return await this.requestService.getPendingPurchaseRequestCount();
+  }
+
+  async updateUsingUserId(data: any) {
+    const { userId, phone, location, name } = data;
+    return await this.athleteRepo.updateUsingUserId(
+      userId,
+      phone,
+      location,
+      name,
+    );
+  }
 }

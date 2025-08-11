@@ -59,6 +59,18 @@ export function formatUsersData(user: any) {
       ...usersData,
       ...cleanInvestor,
     };
+  } else if (user.role === UserRole.ADMIN) {
+    const { admin, athlete: _athlete, investor: _investor, ...usersData } = user || {};
+    let cleanAdmin = admin;
+    if (admin && admin.user) {
+      const { user: _adminUser, ...adminRest } = admin;
+      cleanAdmin = adminRest;
+    }
+    return {
+      userId: user.id,
+      ...usersData,
+      ...cleanAdmin,
+    };
   }
 }
 

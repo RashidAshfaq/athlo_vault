@@ -49,4 +49,8 @@ export class PurchaseRequestService {
       requests,
     };
   }
+
+  async getPendingPurchaseRequestCount(){
+    return await this.requestRepo.getPendingPurchaseRequestCount();
+  }
 }

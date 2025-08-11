@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AbstractRepository } from '@app/common';
-import { PurchaseRequest } from '../models/purchase_request.entity';
+import { PurchaseRequest, PurchaseRequestStatus } from '../models/purchase_request.entity';
 
 @Injectable()
 export class PurchaseRequestRepository extends AbstractRepository<PurchaseRequest> {
@@ -24,5 +24,19 @@ export class PurchaseRequestRepository extends AbstractRepository<PurchaseReques
       order: { created_at: 'DESC' },
       relations: ['approvedBy'], 
     });
+  }
+
+  async getPendingPurchaseRequestCount(athleteId?: number): Promise<number> {
+    const qb = this.requestRepository
+      .createQueryBuilder('pr')
+      .where('pr.requestStatus = :status', { status: PurchaseRequestStatus.PENDING })
+      .andWhere('COALESCE(pr.is_deleted, false) = false');
+
+    if (athleteId) {
+      qb.leftJoinAndSelect('athlete', 'ath')
+      qb.andWhere('ath.id = :athleteId', { athleteId });
+    }
+
+    return qb.getCount();
   }
 }

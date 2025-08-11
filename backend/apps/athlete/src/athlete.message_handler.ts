@@ -1,6 +1,6 @@
 import { Controller, Logger } from '@nestjs/common';
 import { AthleteService } from './athlete.service';
-import { MessagePattern } from '@nestjs/microservices';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 import { Response } from '@app/common';
 
 @Controller()
@@ -20,6 +20,47 @@ export class AthleteMessageHandler {
       response.success = true;
       response.data = user;
       response.message = 'Athlete created successfully.';
+    } catch (ex) {
+      response.data.error = ex;
+      response.message = ex.message;
+    }
+
+    return response;
+  }
+
+  @MessagePattern('get_purchase_request_pending_approval_count')
+  async getPendingPurchaseRequestCount(): Promise<Response>{
+    const response: Response = {
+      success: false,
+      message: '',
+      data: {},
+    };
+    try {
+      const user = await this.athleteService.getPendingPurchaseRequestCount();
+      response.success = true;
+      response.data = user;
+      response.message = 'Count Fetched successfully.';
+    } catch (ex) {
+      response.data.error = ex;
+      response.message = ex.message;
+    }
+
+    return response;
+  }
+
+
+  @MessagePattern('update_athlete_profile')
+  async updateAthleteProfile(@Payload() data: any): Promise<Response> {
+    const response: Response = {
+      success: false,
+      message: '',
+      data: {},
+    };
+    try {
+      const user = await this.athleteService.updateUsingUserId(data);
+      response.success = true;
+      response.data = user;
+      response.message = 'Athlete updated successfully.';
     } catch (ex) {
       response.data.error = ex;
       response.message = ex.message;

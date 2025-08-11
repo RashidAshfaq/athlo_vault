@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthRepository } from './auth.repository';
@@ -13,6 +14,7 @@ import {
   Response,
   formatUsersData,
   INVESTOR_SERVICE,
+  ADMIN_SERVICE,
 } from '@app/common';
 import { SignupDto } from './dtos/signup.dto';
 import { AccountType, User } from './models/users.entity';
@@ -21,6 +23,9 @@ import { ConfigService } from '@nestjs/config';
 import { LoginDto } from './dtos/login.dto';
 import { ClientProxy } from '@nestjs/microservices';
 import { lastValueFrom } from 'rxjs';
+import { UserDTO } from 'apps/admin/src/dtos/user.dto';
+import { BulkUserStatusDto } from 'apps/admin/src/dtos/bulk-user-status.dto';
+import { doesNotMatch } from 'assert';
 
 const roleMap: Record<AccountType, UserRole> = {
   [AccountType.ATHLETE]: UserRole.ATHLETE,
@@ -28,6 +33,7 @@ const roleMap: Record<AccountType, UserRole> = {
   [AccountType.ADMIN]: UserRole.ADMIN,
   [AccountType.FAN]: UserRole.FAN,
 };
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -40,6 +46,8 @@ export class AuthService {
     private readonly athleteServiceClient: ClientProxy,
     @Inject(INVESTOR_SERVICE)
     private readonly investorServiceClient: ClientProxy,
+    @Inject(ADMIN_SERVICE)
+    private readonly adminServiceClient: ClientProxy,
   ) {}
 
   async signup(dto: SignupDto): Promise<any> {
@@ -74,6 +82,13 @@ export class AuthService {
       if (!response?.success) throw new Error(response?.message);
       this.logger.log('Investor Profile Saved Successfully.');
       userData = response.data;
+    } else if (savedUser.role === UserRole.ADMIN) {
+      const response: Response = await lastValueFrom(
+        this.adminServiceClient.send('saved_admin_profile', savedUser),
+      );
+      if (!response?.success) throw new Error(response?.message);
+      this.logger.log('Admin Profile Saved Successfully.');
+      userData = response.data;
     }
     const data = await this.getUsersData(userData);
     return {
@@ -94,6 +109,14 @@ export class AuthService {
       user.password,
     );
     if (!validPassword) throw new UnauthorizedException('Invalid credentials');
+    if (user) {
+      await User.update(
+        { id: user?.id },
+        {
+          last_active: new Date(),
+        },
+      );
+    }
     return this.getUsersData(user);
   }
 
@@ -196,5 +219,108 @@ export class AuthService {
     } catch (error) {
       throw new UnauthorizedException('Refresh token invalid or expired.');
     }
+  }
+
+  async getUsersDashboardAndList(dto: UserDTO) {
+    const [base, prRes, invRes] = await Promise.all([
+      this.authRepo.getUsersDashboardAndList(dto),
+      lastValueFrom(
+        this.athleteServiceClient.send(
+          'get_purchase_request_pending_approval_count',
+          {},
+        ),
+      ),
+      lastValueFrom(
+        this.investorServiceClient.send('get_total_investment', {}),
+      ),
+    ]);
+
+    const purchase_request_count = prRes?.success
+      ? Number(prRes.data?.count ?? prRes.data ?? 0)
+      : 0;
+
+    const total_investment = invRes?.success
+      ? Number(invRes.data?.total ?? invRes.data ?? 0)
+      : 0;
+
+    return {
+      ...base,
+      summary: {
+        ...base.summary,
+        purchase_request_count,
+        total_investment,
+      },
+    };
+  }
+
+  async updateProfileUsingId(dto: UserDTO, user: any) {
+    if (!dto.userId) {
+      throw new NotFoundException('userId is required');
+    }
+    const updatedUser = await this.authRepo.updateUserCoreById(dto, user);
+    const accountType = (updatedUser as any).accountType as
+      | 'athlete'
+      | 'investor'
+      | 'fan'
+      | 'admin';
+    let athleteRes: any = null;
+    let investorRes: any = null;
+    try {
+      if (
+        accountType === 'athlete' &&
+        (dto.phone || dto.location || dto.name)
+      ) {
+        athleteRes: Response = await lastValueFrom(
+          this.athleteServiceClient.send('update_athlete_profile', {
+            userId: dto.userId,
+            phone: dto.phone,
+            location: dto.location,
+            name: dto.name,
+          }),
+        );
+      } else if (
+        accountType === 'investor' &&
+        (dto.phone || dto.location || dto.name)
+      ) {
+        investorRes: Response = await lastValueFrom(
+          this.investorServiceClient.send('update_investor_profile', {
+            userId: dto.userId,
+            phone: dto.phone,
+            location: dto.location,
+            name: dto.name,
+          }),
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Profile RPC failed for ${accountType}: ${err?.message || err}`,
+      );
+    }
+
+    return {
+      message: 'Profile updated successfully.',
+      data: {
+        userId: updatedUser.id,
+        role: accountType,
+        email: updatedUser.email,
+        name: `${updatedUser.firstName} ${updatedUser.lastName}`.trim(),
+        status: (updatedUser as any).is_deleted
+          ? 'suspended'
+          : updatedUser.isApproved
+            ? 'active'
+            : 'pending',
+        phone: dto.phone ?? null,
+        location: dto.location ?? null,
+        rpc: {
+          athlete: athleteRes?.success ?? (athleteRes === null ? null : false),
+          investor:
+            investorRes?.success ?? (investorRes === null ? null : false),
+        },
+      },
+    };
+  }
+
+  async bulkUpdateStatus(dto: BulkUserStatusDto, performedByUserId: number){
+    return await this.authRepo.bulkUpdateStatus(dto, performedByUserId);
   }
 }

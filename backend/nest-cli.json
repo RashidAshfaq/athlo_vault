@@ -2,6 +2,13 @@
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
   "projects": {
+    "admin": {
+      "type": "application",
+      "entryFile": "apps/admin/src/main",
+      "compilerOptions": {
+        "tsConfigPath": "apps/admin/tsconfig.app.json"
+      }
+    },
     "athlete": {
       "type": "application",
       "entryFile": "apps/athlete/src/main",

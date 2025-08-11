@@ -1,4 +1,6 @@
 import { AbstractEntity, UserRole } from '@app/common';
+import { Admin } from 'apps/admin/src/models/admin.entity';
+import { UserMessage } from 'apps/admin/src/models/user_message.entity';
 import { Athlete } from 'apps/athlete/src/models/athlete.entity';
 import { PurchaseRequest } from 'apps/athlete/src/models/purchase_request.entity';
 import { Investor } from 'apps/investor/src/models/investor.entity';
@@ -9,6 +11,7 @@ import {
   JoinColumn,
   OneToMany,
   OneToOne,
+  ManyToMany,
 } from 'typeorm';
 
 export enum AccountType {
@@ -70,6 +73,9 @@ export class User extends AbstractEntity {
   @Column({ type: 'boolean', default: false })
   isProfileCompleted: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  last_active: Date;
+
   @ManyToOne(() => User, (user) => user.approvedUsers, { nullable: true })
   @JoinColumn({ name: 'approved_by' })
   approved_by: User | null;
@@ -87,8 +93,16 @@ export class User extends AbstractEntity {
   })
   investor: Investor;
 
+  @OneToOne(() => Admin, (admin) => admin.user, {
+    cascade: true,
+  })
+  admin: Admin;
+
   @OneToMany(() => PurchaseRequest, (user) => user.approvedBy, {
     cascade: true,
   })
   user: PurchaseRequest[];
+
+  @ManyToMany(() => UserMessage, (m) => m.recipients)
+  receivedMessages: UserMessage[];
 }

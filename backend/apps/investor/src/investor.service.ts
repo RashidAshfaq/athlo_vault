@@ -69,4 +69,14 @@ export class InvestorService {
       data: data,
     };
   }
+
+  async updateUsingUserId(data: any) {
+    const { userId, phone, location, name } = data;
+    return await this.investorRepo.updateUsingUserId(
+      userId,
+      phone,
+      location,
+      name,
+    );
+  }
 }

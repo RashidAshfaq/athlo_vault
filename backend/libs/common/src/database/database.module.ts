@@ -55,6 +55,15 @@ import { TypeOrmCustomLogger } from '@app/common';
                   __dirname,
                   '../../../../../../../dist/apps/auth/src/models/**/*.entity.js',
                 ),
+            isDevelopment
+              ? path.resolve(
+                  __dirname,
+                  '../../../../apps/admin/src/models/**/*.entity{.ts,.js}',
+                )
+              : path.resolve(
+                  __dirname,
+                  '../../../../../../../dist/apps/admin/src/models/**/*.entity.js',
+                ),
           ],
           connectTimeout: 100000,
           synchronize: false,

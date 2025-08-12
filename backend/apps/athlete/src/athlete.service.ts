@@ -255,6 +255,14 @@ export class AthleteService {
     return await this.requestService.getPendingPurchaseRequestCount();
   }
 
+  async getPurchaseRequests(page: number, limit: number) {
+    return await this.requestService.getPurchaseRequests(page, limit);
+  }
+
+  async updatePurchaseRequests(dto: any, performedById: number) {
+    return await this.requestService.updatePurchaseRequests(dto, performedById);
+  }
+
   async updateUsingUserId(data: any) {
     const { userId, phone, location, name } = data;
     return await this.athleteRepo.updateUsingUserId(

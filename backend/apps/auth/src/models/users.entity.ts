@@ -3,6 +3,7 @@ import { Admin } from 'apps/admin/src/models/admin.entity';
 import { UserMessage } from 'apps/admin/src/models/user_message.entity';
 import { Athlete } from 'apps/athlete/src/models/athlete.entity';
 import { PurchaseRequest } from 'apps/athlete/src/models/purchase_request.entity';
+import { Fans } from 'apps/fan/src/models/fan.entity';
 import { Investor } from 'apps/investor/src/models/investor.entity';
 import {
   Entity,
@@ -97,6 +98,11 @@ export class User extends AbstractEntity {
     cascade: true,
   })
   admin: Admin;
+
+  @OneToOne(() => Fans, (fan) => fan.user, {
+    cascade: true,
+  })
+  fan: Fans;
 
   @OneToMany(() => PurchaseRequest, (user) => user.approvedBy, {
     cascade: true,

@@ -9,7 +9,7 @@ export class AdminMessageHandler {
   constructor(private readonly adminService: AdminService) {}
 
   @MessagePattern('saved_admin_profile')
-  async createAthleteProfile(data: any): Promise<Response> {
+  async createAdminProfile(data: any): Promise<Response> {
     const response: Response = {
       success: false,
       message: '',

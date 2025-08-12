@@ -2,7 +2,15 @@ import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ADMIN_SERVICE, ATHLETE_SERVICE, DatabaseModule, INVESTOR_SERVICE, LoggerModule, PasswordService } from '@app/common';
+import {
+  ADMIN_SERVICE,
+  ATHLETE_SERVICE,
+  DatabaseModule,
+  FAN_SERVICE,
+  INVESTOR_SERVICE,
+  LoggerModule,
+  PasswordService,
+} from '@app/common';
 import { join } from 'path';
 import * as path from 'path';
 import { FileUtilsModule } from '@app/common/file_utility';
@@ -61,40 +69,51 @@ import { AuthMessageHandler } from './auth.message_handler';
     }),
 
     ClientsModule.registerAsync([
-        {
-          name: ATHLETE_SERVICE,
-          useFactory: (configService: ConfigService) => ({
-            transport: Transport.TCP,
-            options: {
-              host: configService.get('TCP_HOST'),
-              port: configService.get('ATHLETE_TCP_PORT'),
-            },
-          }),
-          inject: [ConfigService],
-        },
-        {
-          name: INVESTOR_SERVICE,
-          useFactory: (configService: ConfigService) => ({
-            transport: Transport.TCP,
-            options: {
-              host: configService.get('TCP_HOST'),
-              port: configService.get('INVESTOR_TCP_PORT'),
-            },
-          }),
-          inject: [ConfigService],
-        },
-        {
-          name: ADMIN_SERVICE,
-          useFactory: (configService: ConfigService) => ({
-            transport: Transport.TCP,
-            options: {
-              host: configService.get('TCP_HOST'),
-              port: configService.get('ADMIN_TCP_PORT'),
-            },
-          }),
-          inject: [ConfigService],
-        },
-      ]),
+      {
+        name: ATHLETE_SERVICE,
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.TCP,
+          options: {
+            host: configService.get('TCP_HOST'),
+            port: configService.get('ATHLETE_TCP_PORT'),
+          },
+        }),
+        inject: [ConfigService],
+      },
+      {
+        name: INVESTOR_SERVICE,
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.TCP,
+          options: {
+            host: configService.get('TCP_HOST'),
+            port: configService.get('INVESTOR_TCP_PORT'),
+          },
+        }),
+        inject: [ConfigService],
+      },
+      {
+        name: ADMIN_SERVICE,
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.TCP,
+          options: {
+            host: configService.get('TCP_HOST'),
+            port: configService.get('ADMIN_TCP_PORT'),
+          },
+        }),
+        inject: [ConfigService],
+      },
+      {
+        name: FAN_SERVICE,
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.TCP,
+          options: {
+            host: configService.get('TCP_HOST'),
+            port: configService.get('FAN_TCP_PORT'),
+          },
+        }),
+        inject: [ConfigService],
+      },
+    ]),
   ],
   controllers: [AuthController, AuthMessageHandler],
   providers: [

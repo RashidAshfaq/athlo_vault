@@ -14,6 +14,7 @@ import { UserDTO } from './dtos/user.dto';
 import { SendUserMessageDto } from './dtos/send-user-message.dto';
 import { UserMessageService } from './user_messages/user_messages.service';
 import { BulkUserStatusDto } from './dtos/bulk-user-status.dto';
+import { BulkRequestsStatusDto } from './dtos/bulk-request-status.dto';
 
 @Controller()
 @UseInterceptors(LoggingInterceptor)
@@ -53,6 +54,19 @@ export class AdminController {
   async bulkStatus(@Req() req: any, @Body() dto: BulkUserStatusDto) {
     const performedByUserId = req.user?.admin?.id;
     const result = await this.adminService.bulkStatus(performedByUserId, dto);
+    return { success: true, message: 'Bulk status updated.', data: result };
+  }
+
+  @Post('bulk_purchase_status')
+  async bulkPurchaseStatus(
+    @Req() req: any,
+    @Body() dto: BulkRequestsStatusDto,
+  ) {
+    const performedByUserId = req.user?.admin?.id;
+    const result = await this.adminService.bulkPurchaseStatus(
+      performedByUserId,
+      dto,
+    );
     return { success: true, message: 'Bulk status updated.', data: result };
   }
 }

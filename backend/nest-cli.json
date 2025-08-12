@@ -30,6 +30,13 @@
         "tsConfigPath": "libs/common/tsconfig.lib.json"
       }
     },
+    "fan": {
+      "type": "application",
+      "entryFile": "apps/fan/src/main",
+      "compilerOptions": {
+        "tsConfigPath": "apps/fan/tsconfig.app.json"
+      }
+    },
     "gateway": {
       "type": "application",
       "entryFile": "apps/gateway/src/main",

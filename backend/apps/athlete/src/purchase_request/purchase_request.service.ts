@@ -53,4 +53,12 @@ export class PurchaseRequestService {
   async getPendingPurchaseRequestCount(){
     return await this.requestRepo.getPendingPurchaseRequestCount();
   }
+
+   async getPurchaseRequests(page: number, limit: number) {
+    return await this.requestRepo.getPurchaseRequests(page, limit);
+  }
+
+   async updatePurchaseRequests(dto: any, performedById: number) {
+    return await this.requestRepo.updatePurchaseRequests(dto, performedById);
+  }
 }

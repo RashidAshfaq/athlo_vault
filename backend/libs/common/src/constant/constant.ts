@@ -60,7 +60,12 @@ export function formatUsersData(user: any) {
       ...cleanInvestor,
     };
   } else if (user.role === UserRole.ADMIN) {
-    const { admin, athlete: _athlete, investor: _investor, ...usersData } = user || {};
+    const {
+      admin,
+      athlete: _athlete,
+      investor: _investor,
+      ...usersData
+    } = user || {};
     let cleanAdmin = admin;
     if (admin && admin.user) {
       const { user: _adminUser, ...adminRest } = admin;
@@ -70,6 +75,24 @@ export function formatUsersData(user: any) {
       userId: user.id,
       ...usersData,
       ...cleanAdmin,
+    };
+  } else if (user.role === UserRole.FAN) {
+    const {
+      fan,
+      athlete: _athlete,
+      investor: _investor,
+      admin: _admin,
+      ...usersData
+    } = user || {};
+    let cleanFan = fan;
+    if (fan && fan.user) {
+      const { user: _fanUser, ...fanRest } = fan;
+      cleanFan = fanRest;
+    }
+    return {
+      userId: user.id,
+      ...usersData,
+      ...cleanFan,
     };
   }
 }

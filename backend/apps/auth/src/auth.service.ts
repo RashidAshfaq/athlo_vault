@@ -15,6 +15,7 @@ import {
   formatUsersData,
   INVESTOR_SERVICE,
   ADMIN_SERVICE,
+  FAN_SERVICE,
 } from '@app/common';
 import { SignupDto } from './dtos/signup.dto';
 import { AccountType, User } from './models/users.entity';
@@ -48,6 +49,8 @@ export class AuthService {
     private readonly investorServiceClient: ClientProxy,
     @Inject(ADMIN_SERVICE)
     private readonly adminServiceClient: ClientProxy,
+    @Inject(FAN_SERVICE)
+    private readonly fanServiceClient: ClientProxy,
   ) {}
 
   async signup(dto: SignupDto): Promise<any> {
@@ -85,6 +88,13 @@ export class AuthService {
     } else if (savedUser.role === UserRole.ADMIN) {
       const response: Response = await lastValueFrom(
         this.adminServiceClient.send('saved_admin_profile', savedUser),
+      );
+      if (!response?.success) throw new Error(response?.message);
+      this.logger.log('Admin Profile Saved Successfully.');
+      userData = response.data;
+    } else if (savedUser.role === UserRole.FAN) {
+      const response: Response = await lastValueFrom(
+        this.fanServiceClient.send('saved_fan_profile', savedUser),
       );
       if (!response?.success) throw new Error(response?.message);
       this.logger.log('Admin Profile Saved Successfully.');
@@ -221,36 +231,104 @@ export class AuthService {
     }
   }
 
+  // async getUsersDashboardAndList(dto: UserDTO) {
+  //   const [base, prRes, invRes] = await Promise.all([
+  //     this.authRepo.getUsersDashboardAndList(dto),
+  //     lastValueFrom(
+  //       this.athleteServiceClient.send(
+  //         'get_purchase_request_pending_approval_count',
+  //         {},
+  //       ),
+  //     ),
+  //     lastValueFrom(
+  //       this.athleteServiceClient.send(
+  //         'get_purchase_request',
+  //         {page: dto.page, limit: dto.limit},
+  //       ),
+  //     ),
+  //     lastValueFrom(
+  //       this.investorServiceClient.send('get_total_investment', {}),
+  //     ),
+  //   ]);
+
+  //   const purchase_request_count = prRes?.success
+  //     ? Number(prRes.data?.count ?? prRes.data ?? 0)
+  //     : 0;
+
+  //   const total_investment = invRes?.success
+  //     ? Number(invRes.data?.total ?? invRes.data ?? 0)
+  //     : 0;
+
+  //   return {
+  //     ...base,
+  //     summary: {
+  //       ...base.summary,
+  //       purchase_request_count,
+  //       total_investment,
+  //     },
+  //   };
+  // }
   async getUsersDashboardAndList(dto: UserDTO) {
-    const [base, prRes, invRes] = await Promise.all([
-      this.authRepo.getUsersDashboardAndList(dto),
-      lastValueFrom(
-        this.athleteServiceClient.send(
-          'get_purchase_request_pending_approval_count',
-          {},
-        ),
+    const baseP = this.authRepo.getUsersDashboardAndList(dto);
+    const prCountP = lastValueFrom(
+      this.athleteServiceClient.send(
+        'get_purchase_request_pending_approval_count',
+        {},
       ),
-      lastValueFrom(
-        this.investorServiceClient.send('get_total_investment', {}),
-      ),
+    );
+    const totalInvP = lastValueFrom(
+      this.investorServiceClient.send('get_total_investment', {}),
+    );
+
+    const prListP =
+      dto.filter === 'requests'
+        ? lastValueFrom(
+            this.athleteServiceClient.send('get_purchase_request', {
+              page: dto.page,
+              limit: dto.limit,
+            }),
+          )
+        : Promise.resolve(null);
+
+    const [base, prCountRes, totalInvRes, prListRes] = await Promise.all([
+      baseP,
+      prCountP,
+      totalInvP,
+      prListP,
     ]);
 
-    const purchase_request_count = prRes?.success
-      ? Number(prRes.data?.count ?? prRes.data ?? 0)
+    const purchase_request_count = prCountRes?.success
+      ? Number(prCountRes.data?.count ?? prCountRes.data ?? 0)
       : 0;
 
-    const total_investment = invRes?.success
-      ? Number(invRes.data?.total ?? invRes.data ?? 0)
+    const total_investment = totalInvRes?.success
+      ? Number(totalInvRes.data?.total ?? totalInvRes.data ?? 0)
       : 0;
 
-    return {
-      ...base,
-      summary: {
-        ...base.summary,
-        purchase_request_count,
-        total_investment,
-      },
+    const summary = {
+      ...base.summary,
+      purchase_request_count,
+      total_investment,
     };
+
+    if (dto.filter === 'requests') {
+      const requestsData = prListRes?.success
+        ? (prListRes.data?.data ?? [])
+        : [];
+      const requestsMeta = prListRes?.success
+        ? (prListRes.data?.meta ?? {})
+        : {};
+
+      return {
+        summary,
+        requests: {
+          data: requestsData,
+          meta: requestsMeta,
+        },
+      };
+    }
+
+    return { ...base, summary };
   }
 
   async updateProfileUsingId(dto: UserDTO, user: any) {
@@ -265,6 +343,7 @@ export class AuthService {
       | 'admin';
     let athleteRes: any = null;
     let investorRes: any = null;
+    let fanRes: any = null;
     try {
       if (
         accountType === 'athlete' &&
@@ -287,6 +366,17 @@ export class AuthService {
             userId: dto.userId,
             phone: dto.phone,
             location: dto.location,
+            name: dto.name,
+          }),
+        );
+      } else if (
+        accountType === 'fan' &&
+        (dto.phone || dto.location || dto.name)
+      ) {
+        fanRes: Response = await lastValueFrom(
+          this.fanServiceClient.send('update_fan_profile', {
+            userId: dto.userId,
+            email: dto.email,
             name: dto.name,
           }),
         );
@@ -315,12 +405,13 @@ export class AuthService {
           athlete: athleteRes?.success ?? (athleteRes === null ? null : false),
           investor:
             investorRes?.success ?? (investorRes === null ? null : false),
+          fan: fanRes?.success ?? (fanRes === null ? null : false),
         },
       },
     };
   }
 
-  async bulkUpdateStatus(dto: BulkUserStatusDto, performedByUserId: number){
+  async bulkUpdateStatus(dto: BulkUserStatusDto, performedByUserId: number) {
     return await this.authRepo.bulkUpdateStatus(dto, performedByUserId);
   }
 }

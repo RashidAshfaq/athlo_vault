@@ -48,6 +48,48 @@ export class AthleteMessageHandler {
     return response;
   }
 
+    @MessagePattern('get_purchase_request')
+  async getPurchaseRequests(@Payload() dto: any): Promise<Response>{
+    const {page, limit} = dto;
+    const response: Response = {
+      success: false,
+      message: '',
+      data: {},
+    };
+    try {
+      const user = await this.athleteService.getPurchaseRequests(page, limit);
+      response.success = true;
+      response.data = user;
+      response.message = 'Purchase Requests Fetched successfully.';
+    } catch (ex) {
+      response.data.error = ex;
+      response.message = ex.message;
+    }
+
+    return response;
+  }
+
+  @MessagePattern('update_purchase_request_status')
+  async updatePurchaseRequests(@Payload() data: any): Promise<Response>{
+    const { dto, performedByUserId} = data;
+    const response: Response = {
+      success: false,
+      message: '',
+      data: {},
+    };
+    try {
+      const user = await this.athleteService.updatePurchaseRequests(dto, performedByUserId);
+      response.success = true;
+      response.data = user;
+      response.message = 'Purchase Requests Fetched successfully.';
+    } catch (ex) {
+      response.data.error = ex;
+      response.message = ex.message;
+    }
+
+    return response;
+  }
+
 
   @MessagePattern('update_athlete_profile')
   async updateAthleteProfile(@Payload() data: any): Promise<Response> {

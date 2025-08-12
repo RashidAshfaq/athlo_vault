@@ -13,6 +13,7 @@ import { UserDTO } from './dtos/user.dto';
 import { lastValueFrom } from 'rxjs';
 import { BulkUserStatusDto } from './dtos/bulk-user-status.dto';
 import { response } from 'express';
+import { BulkRequestsStatusDto } from './dtos/bulk-request-status.dto';
 
 @Injectable()
 export class AdminService {
@@ -68,6 +69,15 @@ export class AdminService {
     );
     if (!response.success) throw new Error(response.message);
     this.logger.log('User Profile Status Updated Successfully.');
+    return response.data;
+  }
+
+  async bulkPurchaseStatus(performedByUserId: number, dto: BulkRequestsStatusDto){
+    const response: Response = await lastValueFrom(
+      this.athleteServiceClient.send('update_purchase_request_status', { dto, performedByUserId }),
+    );
+    if (!response.success) throw new Error(response.message);
+    this.logger.log('Purchase Requests Status Updated Successfully.');
     return response.data;
   }
 }

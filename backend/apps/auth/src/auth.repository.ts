@@ -46,6 +46,8 @@ export class AuthRepository extends AbstractRepository<User> {
         'investor.user',
         'admin',
         'admin.user',
+        'fan',
+        'fan.user'
       ],
     });
     // Check if any user has `deleted_by`
@@ -111,6 +113,8 @@ export class AuthRepository extends AbstractRepository<User> {
     let users;
     if (q.filter === 'approvals') {
       users = await this.getApprovalsUsersList(page, perPage, q);
+    } else if(q.filter === 'requests') {
+      // users = await this.getPurchaseRequestList(page, perPage, q);
     } else {
       users = await this.getUserManagementList(page, perPage, q);
     }
@@ -197,6 +201,7 @@ export class AuthRepository extends AbstractRepository<User> {
     const qb = this.userRepository
       .createQueryBuilder('u')
       .leftJoinAndSelect('u.athlete', 'ath')
+      .leftJoinAndSelect('ath.coach', 'coach')
       .leftJoinAndSelect('u.investor', 'inv')
       .where('u.role != :admin', { admin: UserRole.ADMIN })
       .andWhere('COALESCE(u.is_deleted, false) = false') 
@@ -214,7 +219,10 @@ export class AuthRepository extends AbstractRepository<User> {
       data: rows.map((u) => {
         const status = this.computeStatus(u);
         const phone = u.athlete?.phone ?? u.investor?.phone ?? null;
-        const primarySportOrLimit = u.athlete?.primarySport ?? u.investor?.expected_investment_amount ?? null
+        const primarySportOrLimit = u.athlete?.primarySport ?? u.investor?.expected_investment_amount ?? null;
+        const idOrkycStatus = u.athlete?.proofOfAthleteStatus ?? u.investor?.kyc_status ?? null;
+        const governmentIdOrAMLStatus = u.athlete?.governmentId ?? u.investor?.aml_status ?? null;
+        const financialOrMedicalOrCoach = u.investor?.annual_income_range ?? u.investor?.net_worth_range ??  u.athlete?.coach ?? null;
         const location = this.makeUserLocation(u, u.athlete, u.investor);
         // const 
         return {
@@ -226,6 +234,9 @@ export class AuthRepository extends AbstractRepository<User> {
           phone,
           location,
           primarySportOrLimit,
+          idOrkycStatus,
+          governmentIdOrAMLStatus,
+          financialOrMedicalOrCoach,
           join_date: this.ymd((u as any).created_at),
         };
       }),

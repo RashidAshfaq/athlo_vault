@@ -130,10 +130,11 @@ export class AuthService {
     return this.getUsersData(user);
   }
 
-  async getUsersData(user: User) {
+  async getUsersData(user: any) {
+    const role = user.role ?? user.user?.role ?? null;
     const payload = {
       sub: user.id,
-      role: user.role,
+      role: role ,
       is_deleted: false,
     };
 

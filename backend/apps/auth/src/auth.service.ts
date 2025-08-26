@@ -132,8 +132,10 @@ export class AuthService {
 
   async getUsersData(user: any) {
     const role = user.role ?? user.user?.role ?? null;
+    const id = user?.user?.id ?? user?.id ?? null;
+
     const payload = {
-      sub: user.id,
+      sub: id,
       role: role ,
       is_deleted: false,
     };
@@ -174,7 +176,6 @@ export class AuthService {
       const user = await this.authRepo.findOneWhere({
         id: parseInt(payload.sub, 10),
       });
-
       if (!user) {
         this.logger.warn(`User with ID ${payload.sub} not found`);
         throw new UnauthorizedException();

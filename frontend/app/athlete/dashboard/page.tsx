@@ -26,47 +26,117 @@ import {
 import Link from "next/link"
 
 interface AthleteUser {
+  userId: number
+  id: number
+  created_at: number
+  firstName: string
+  lastName: string
+  fullName: string
   email: string
-  firstName?: string
-  lastName?: string
-  userType: string
-  isAuthenticated: boolean
+  phone: string
+  dob: string
+  accountType: string
+  profile_picture: string
+  coverPhoto: string
+  city: string
+  state?: string | null
+  country?: string | null
+  zip?: string | null
+  role: string
+  isApproved: boolean
+  isProfileCompleted: boolean
+  location: string
+  primarySport: string
+  positionOrSpeciality: string
+  organizationName: string
+  yearOfExperience: number
+  keyAchievements: string
+  currentPerformance: string
+  felonyConviction: boolean
+  felonyDescription: string
+  height: number
+  weight: number
+  biography?: string | null
+  about: string
+  access_token: string
+  refresh_token: string
+
+  fundingGoal?: {
+    id: number
+    created_at: number
+    fundUses: string
+    revenueSharePercentage: number
+    currentGoalsTimelines: string
+  }
+
+  socialMedia?: {
+    id: number
+    created_at: number
+    twitterFollowers: number
+    instagramFollowers: number
+    linkedFollowers: number
+    personalWebsiteUrl: string
+  }
+
+  coach?: {
+    id: number
+    created_at: number
+    name: string
+    email: string
+    phone: string
+    yearOfWorkTogether: number
+    achievementAndBackground: string
+  }
 }
+
 
 export default function AthleteDashboard() {
   const router = useRouter()
   const [user, setUser] = useState<AthleteUser | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const userData = localStorage.getItem("user")
-    if (!userData) {
-      router.push("/auth/signin")
-      return
-    }
+    try {
+      const userData = localStorage.getItem("user")
 
-    const parsedUser = JSON.parse(userData)
-    if (parsedUser.userType !== "athlete") {
-      router.push("/auth/signin")
-      return
-    }
+      if (!userData) {
+        console.log("No user data found in localStorage, redirecting to signin")
+        router.replace("/auth/signin")
+        return
+      }
 
-    setUser(parsedUser)
+      const parsedUser: AthleteUser = JSON.parse(userData)
+
+      if (parsedUser.role !== "athlete") {
+        console.log("User is not an athlete, redirecting to signin")
+        router.replace("/auth/signin")
+        return
+      }
+
+      setUser(parsedUser)
+    } catch (error) {
+      console.error("Error parsing user data:", error)
+      router.replace("/auth/signin")
+    } finally {
+      setLoading(false)
+    }
   }, [router])
 
-  if (!user) {
+  if (loading) {
     return (
-      <AthleteLayout title="Dashboard" description="Loading your dashboard...">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-        </div>
-      </AthleteLayout>
+      <div className="flex items-center justify-center min-h-screen bg-black text-white">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-400"></div>
+        <span className="ml-4">Loading Dashboard...</span>
+      </div>
     )
   }
 
-  const profileCompletion = 85
-  const currentFunding = 187500
-  const fundingGoal = 250000
-  const fundingPercentage = (currentFunding / fundingGoal) * 100
+  if (!user) return null
+
+  const profileCompletion = user.isProfileCompleted
+  const currentFunding = user.fundingGoal?.currentGoalsTimelines || 0
+
+  const fundingPercentage = user.fundingGoal?.revenueSharePercentage ? Math.min(user.fundingGoal.revenueSharePercentage, 100) : 0
 
   return (
     <AthleteLayout title="Dashboard" description="Welcome back! Here's your performance overview.">
@@ -75,7 +145,7 @@ export default function AthleteDashboard() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-              Welcome back, {user.firstName || "Athlete"}! 👋
+              Welcome back, {user.firstName || user.fullName || "Athlete"}! 👋
             </h1>
             <p className="text-slate-400 text-lg">Here's what's happening with your profile today.</p>
           </div>
@@ -117,7 +187,7 @@ export default function AthleteDashboard() {
               <div className="text-slate-400 text-sm">Complete</div>
             </div>
           </div>
-          <Progress value={profileCompletion} className="mb-4" />
+          <Progress value={profileCompletion ? 100 : 50} className="mb-4" />
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30">
               <CheckCircle className="h-3 w-3 mr-1" />
@@ -146,18 +216,24 @@ export default function AthleteDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm font-medium">Current Funding</p>
-                <p className="text-2xl font-bold text-white">${currentFunding.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-white">{currentFunding.toLocaleString()}</p>
               </div>
               <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
                 <DollarSign className="h-6 w-6 text-green-400" />
               </div>
             </div>
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-slate-400">Progress</span>
-                <span className="text-slate-300">{fundingPercentage.toFixed(1)}%</span>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">Rvenue Share Percentage</p>
+                <p className="text-2xl font-bold text-white">{fundingPercentage.toLocaleString()}</p>
               </div>
-              <Progress value={fundingPercentage} className="h-2" />
+              <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-green-400" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -217,6 +293,8 @@ export default function AthleteDashboard() {
         </Card>
       </div>
 
+      {/* Quick Actions and Smart Contract */}
+      {/* Keeping as-is since you already have these correctly configured */}
       {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">

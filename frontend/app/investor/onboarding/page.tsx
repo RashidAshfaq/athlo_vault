@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { Label } from "@/components/ui/label"
 import { Shield, User, CreditCard, CheckCircle, ArrowRight, ArrowLeft } from "lucide-react"
+import { createInvestorProfile } from "@/lib/add-investor-api"
 
 interface OnboardingData {
   firstName: string
@@ -24,6 +25,10 @@ export default function InvestorOnboardingPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
   const [formData, setFormData] = useState({
     personalInfo: {
       firstName: "",
@@ -32,21 +37,23 @@ export default function InvestorOnboardingPage() {
       phone: "",
       dateOfBirth: "",
       state: "",
+      city: "",
+      zip: "",
     },
     financial: {
-      householdIncome: "",
+      householdIncome: "", // will map to API's annual_income_range
       profession: "",
       expectedInvestmentAmount: "",
     },
     legal: {
       accreditedInvestor: false,
       riskTolerance: "",
-      investmentExperience: "",
+      investmentExperience: "", // will map to API's investment_experience
     },
     agreements: {
-      termsAccepted: false,
-      privacyAccepted: false,
-      riskDisclosureAccepted: false,
+      termsAccepted: false, // terms_of_service_check
+      privacyAccepted: false, // privacy_policy_check
+      riskDisclosureAccepted: false, // risk_disclosure_statement_check
     },
   })
 
@@ -63,7 +70,6 @@ export default function InvestorOnboardingPage() {
       return
     }
 
-    // Get onboarding data passed from signup
     if (parsedUser.onboardingData) {
       setOnboardingData(parsedUser.onboardingData)
       setFormData((prev) => ({
@@ -73,6 +79,23 @@ export default function InvestorOnboardingPage() {
           firstName: parsedUser.onboardingData.firstName || "",
           lastName: parsedUser.onboardingData.lastName || "",
           email: parsedUser.onboardingData.email || "",
+        },
+      }))
+    } else {
+      // If you always set onboardingData on signup, you can remove this.
+      setOnboardingData({
+        firstName: parsedUser.firstName || "",
+        lastName: parsedUser.lastName || "",
+        email: parsedUser.email || "",
+        userType: "investor",
+      })
+      setFormData((prev) => ({
+        ...prev,
+        personalInfo: {
+          ...prev.personalInfo,
+          firstName: parsedUser.firstName || "",
+          lastName: parsedUser.lastName || "",
+          email: parsedUser.email || "",
         },
       }))
     }
@@ -87,20 +110,22 @@ export default function InvestorOnboardingPage() {
 
   const progress = (currentStep / steps.length) * 100
 
-  const nextStep = () => {
-    if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1)
+  const nextStep = async () => {
+    setError(null)
+    // When leaving step 3, submit to backend
+    if (currentStep === 3) {
+      await handleSubmitProfile()
+      return
     }
+    if (currentStep < steps.length) setCurrentStep(currentStep + 1)
   }
 
   const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
+    setError(null)
+    if (currentStep > 1) setCurrentStep(currentStep - 1)
   }
 
-  const completeOnboarding = () => {
-    // Update user data to remove onboarding flag
+  const completeOnboardingLocally = () => {
     const userData = localStorage.getItem("user")
     if (userData) {
       const parsedUser = JSON.parse(userData)
@@ -108,9 +133,66 @@ export default function InvestorOnboardingPage() {
       parsedUser.onboardingCompleted = true
       localStorage.setItem("user", JSON.stringify(parsedUser))
     }
+  }
 
-    // Redirect to investor dashboard
-    router.push("/investor/dashboard")
+  // map UI values -> API expected values
+  const incomeLabelMap: Record<string, string> = {
+    "under-50k": "Under $50K",
+    "50k-100k": "$50K - $100K",
+    "100k-250k": "$100K - $250K",
+    "250k-500k": "$250K - $500K",
+    "over-500k": "$500K - $1M", // adjust to whatever your backend expects
+  }
+
+  const experienceLabelMap: Record<string, string> = {
+    beginner: "Beginner",
+    intermediate: "Intermediate",
+    experienced: "Advanced", // example in your prompt shows "Advanced"
+    professional: "Professional",
+  }
+
+  const handleSubmitProfile = async () => {
+    try {
+      setSubmitting(true)
+      setError(null)
+      setSuccessMsg(null)
+
+      // quick validations
+      const p = formData.personalInfo
+      if (!p.firstName || !p.lastName || !p.email || !p.phone || !p.dateOfBirth || !p.state) {
+        throw new Error("Please complete all required personal fields.")
+      }
+      if (!formData.agreements.termsAccepted || !formData.agreements.privacyAccepted || !formData.agreements.riskDisclosureAccepted) {
+        throw new Error("Please accept Terms, Privacy Policy, and Risk Disclosure to continue.")
+      }
+
+      const fullName = `${p.firstName} ${p.lastName}`.trim()
+      const annualIncomeRange = incomeLabelMap[formData.financial.householdIncome] || ""
+      const investmentExperience = experienceLabelMap[formData.legal.investmentExperience] || ""
+
+      const payload = {
+        fullName,
+        phone: p.phone,
+        dob: p.dateOfBirth, // YYYY-MM-DD
+        state_of_residence: p.state, // keep raw state name (e.g., "California")
+        city: p.city || "",
+        zip: p.zip || "",
+        annual_income_range: annualIncomeRange,
+        investment_experience: investmentExperience,
+        terms_of_service_check: formData.agreements.termsAccepted,
+        privacy_policy_check: formData.agreements.privacyAccepted,
+        risk_disclosure_statement_check: formData.agreements.riskDisclosureAccepted,
+      }
+
+      const res = await createInvestorProfile(payload)
+      setSuccessMsg(res.message || "Investor profile created successfully.")
+      completeOnboardingLocally()
+      setCurrentStep(4)
+    } catch (e: any) {
+      setError(e.message || "Something went wrong while creating your profile.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const StepIcon = steps[currentStep - 1].icon
@@ -124,56 +206,7 @@ export default function InvestorOnboardingPage() {
   }
 
   const usStates = [
-    "Alabama",
-    "Alaska",
-    "Arizona",
-    "Arkansas",
-    "California",
-    "Colorado",
-    "Connecticut",
-    "Delaware",
-    "Florida",
-    "Georgia",
-    "Hawaii",
-    "Idaho",
-    "Illinois",
-    "Indiana",
-    "Iowa",
-    "Kansas",
-    "Kentucky",
-    "Louisiana",
-    "Maine",
-    "Maryland",
-    "Massachusetts",
-    "Michigan",
-    "Minnesota",
-    "Mississippi",
-    "Missouri",
-    "Montana",
-    "Nebraska",
-    "Nevada",
-    "New Hampshire",
-    "New Jersey",
-    "New Mexico",
-    "New York",
-    "North Carolina",
-    "North Dakota",
-    "Ohio",
-    "Oklahoma",
-    "Oregon",
-    "Pennsylvania",
-    "Rhode Island",
-    "South Carolina",
-    "South Dakota",
-    "Tennessee",
-    "Texas",
-    "Utah",
-    "Vermont",
-    "Virginia",
-    "Washington",
-    "West Virginia",
-    "Wisconsin",
-    "Wyoming",
+    "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming",
   ]
 
   return (
@@ -206,6 +239,13 @@ export default function InvestorOnboardingPage() {
             </div>
             <Progress value={progress} className="h-2" />
           </div>
+
+          {/* Inline error/success */}
+          {(error || successMsg) && (
+            <div className={`mb-4 rounded-md p-3 ${error ? "bg-red-500/10 border border-red-500/40" : "bg-green-500/10 border border-green-500/40"}`}>
+              <p className={`${error ? "text-red-300" : "text-green-300"} text-sm`}>{error || successMsg}</p>
+            </div>
+          )}
 
           {/* Step Content */}
           <Card className="bg-slate-800/50 border-slate-700">
@@ -249,65 +289,95 @@ export default function InvestorOnboardingPage() {
                       />
                     </div>
                   </div>
+
                   <div>
                     <Label className="text-slate-300">Email Address</Label>
-                    <Input
-                      type="email"
-                      className="bg-slate-900 border-slate-700 text-white"
-                      value={formData.personalInfo.email}
-                      readOnly
-                    />
+                    <Input type="email" className="bg-slate-900 border-slate-700 text-white" value={formData.personalInfo.email} readOnly />
                   </div>
-                  <div>
-                    <Label className="text-slate-300">Phone Number</Label>
-                    <Input
-                      className="bg-slate-900 border-slate-700 text-white"
-                      placeholder="+1 (555) 123-4567"
-                      value={formData.personalInfo.phone}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          personalInfo: { ...formData.personalInfo, phone: e.target.value },
-                        })
-                      }
-                    />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">Phone Number</Label>
+                      <Input
+                        className="bg-slate-900 border-slate-700 text-white"
+                        placeholder="+1 (555) 123-4567"
+                        value={formData.personalInfo.phone}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            personalInfo: { ...formData.personalInfo, phone: e.target.value },
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">Date of Birth</Label>
+                      <Input
+                        type="date"
+                        className="bg-slate-900 border-slate-700 text-white"
+                        value={formData.personalInfo.dateOfBirth}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            personalInfo: { ...formData.personalInfo, dateOfBirth: e.target.value },
+                          })
+                        }
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-slate-300">Date of Birth</Label>
-                    <Input
-                      type="date"
-                      className="bg-slate-900 border-slate-700 text-white"
-                      value={formData.personalInfo.dateOfBirth}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          personalInfo: { ...formData.personalInfo, dateOfBirth: e.target.value },
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">State of Residence</Label>
-                    <Select
-                      value={formData.personalInfo.state}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          personalInfo: { ...formData.personalInfo, state: value },
-                        })
-                      }
-                    >
-                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
-                        <SelectValue placeholder="Select your state" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
-                        {usStates.map((state) => (
-                          <SelectItem key={state} value={state.toLowerCase().replace(/\s+/g, "-")}>
-                            {state}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-slate-300">State of Residence</Label>
+                      <Select
+                        value={formData.personalInfo.state}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            personalInfo: { ...formData.personalInfo, state: value },
+                          })
+                        }
+                      >
+                        <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
+                          <SelectValue placeholder="Select your state" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700">
+                          {usStates.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">City</Label>
+                      <Input
+                        className="bg-slate-900 border-slate-700 text-white"
+                        placeholder="e.g., Palo Alto"
+                        value={formData.personalInfo.city}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            personalInfo: { ...formData.personalInfo, city: e.target.value },
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">ZIP</Label>
+                      <Input
+                        className="bg-slate-900 border-slate-700 text-white"
+                        placeholder="e.g., 94301"
+                        value={formData.personalInfo.zip}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            personalInfo: { ...formData.personalInfo, zip: e.target.value },
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -496,21 +566,15 @@ export default function InvestorOnboardingPage() {
                     <h4 className="text-white font-semibold mb-4">What's Next?</h4>
                     <div className="space-y-3 text-left">
                       <div className="flex items-center space-x-3">
-                        <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-slate-900 text-sm font-bold">
-                          1
-                        </div>
+                        <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-slate-900 text-sm font-bold">1</div>
                         <span className="text-slate-300">Complete identification verification within 24–48 hours</span>
                       </div>
                       <div className="flex items-center space-x-3">
-                        <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-slate-900 text-sm font-bold">
-                          2
-                        </div>
+                        <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-slate-900 text-sm font-bold">2</div>
                         <span className="text-slate-300">Smart contracts</span>
                       </div>
                       <div className="flex items-center space-x-3">
-                        <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-slate-900 text-sm font-bold">
-                          3
-                        </div>
+                        <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-slate-900 text-sm font-bold">3</div>
                         <span className="text-slate-300">Connect with agents</span>
                       </div>
                     </div>
@@ -518,7 +582,9 @@ export default function InvestorOnboardingPage() {
 
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <Button
-                      onClick={completeOnboarding}
+                      onClick={() => {
+                        router.push("/investor/dashboard")
+                      }}
                       className="bg-amber-500 hover:bg-amber-600 text-white font-semibold"
                     >
                       Go to Dashboard
@@ -540,14 +606,18 @@ export default function InvestorOnboardingPage() {
                   <Button
                     variant="outline"
                     onClick={prevStep}
-                    disabled={currentStep === 1}
+                    disabled={currentStep === 1 || submitting}
                     className="border-slate-600 text-slate-300 hover:text-white bg-transparent"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Previous
                   </Button>
-                  <Button onClick={nextStep} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold">
-                    {currentStep === 3 ? "Complete Setup" : "Next"}
+                  <Button
+                    onClick={nextStep}
+                    disabled={submitting}
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
+                  >
+                    {currentStep === 3 ? (submitting ? "Submitting..." : "Complete Setup") : "Next"}
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>

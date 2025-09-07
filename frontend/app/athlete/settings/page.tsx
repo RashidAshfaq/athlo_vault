@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AthleteLayout } from "@/components/athlete-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { updateAthleteProfile } from "@/lib/athlete-update-api"
 import { FileUpload } from "@/components/file-upload"
+import { toast } from "sonner"
 import {
   User,
   Trophy,
@@ -32,71 +34,401 @@ import {
   Users,
 } from "lucide-react"
 
+// Define the structure for nested objects
+interface CoachData {
+  name: string
+  email: string
+  phone: string
+  yearOfWorkTogether: string
+  achievementAndBackground: string
+}
+
+interface SocialMediaData {
+  twitterFollowers: string
+  instagramFollowers: string
+  linkedFollowers: string
+  personalWebsiteUrl: string
+}
+
+interface FundingGoalData {
+  fundUses: string
+  revenueSharePercentage: string
+  currentGoalsTimelines: string
+}
+
+// Define the overall shape of the profileData state
+export interface AthleteProfileState {
+  // Basic Information
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  dob: string
+  location: string
+
+  // Athletic Information
+  primarySport: string
+  positionOrSpeciality: string
+  organizationName: string
+  height: string
+  weight: string
+  yearOfExperience: string // ✅ Updated from 'experience'
+
+  // Bio and Goals
+  bio: string
+  about: string
+  keyAchievements: string
+  currentPerformance: string
+
+  // Social Media
+  website: string
+  instagram: string
+  twitter: string
+  linkedin: string
+
+  // Legal & Verification
+  felonyConviction: string
+  felonyDescription: string
+  felonyYear: string
+
+  // Profile Status
+  profileStatus: string
+
+  // Nested Objects
+  coach: CoachData
+  socialMedia: SocialMediaData
+  fundingGoal: FundingGoalData
+
+  // Additional Metadata
+  id?: number
+  created_at?: number
+  access_token?: string
+  accountType?: string
+  fullName?: string
+  city?: string
+  country?: string
+  coverPhoto?: string
+  governmentId?: string
+  investor?: any
+  isApproved?: boolean
+  isProfileCompleted?: boolean
+  profile_picture?: string
+  proofOfAthleteStatus?: string
+  refresh_token?: string
+  role?: string
+  userId?: number
+  userType?: string
+  zip?: string
+  state?: string
+}
+
+// Initial default state matching the above structure
+export const initialProfileState: AthleteProfileState = {
+  // Basic Information
+  firstName: "Alex",
+  lastName: "Johnson",
+  email: "alex.johnson@email.com",
+  phone: "+1 (555) 123-4567",
+  dob: "2002-03-15",
+  location: "Los Angeles, CA",
+
+  // Athletic Information
+  primarySport: "Basketball",
+  positionOrSpeciality: "Point Guard",
+  organizationName: "UCLA Bruins",
+  height: "6'2\"",
+  weight: "185",
+  yearOfExperience: "4", // ✅ Consistent with type
+
+  // Bio and Goals
+  bio: "Passionate basketball player with dreams of making it to the NBA. Currently leading my university team with strong performance stats and leadership skills.",
+  about: "",
+  keyAchievements: "Get drafted in NBA first round, Win NBA Rookie of the Year, Secure major endorsement deal",
+  currentPerformance: "",
+
+  // Social Media
+  website: "",
+  instagram: "@alexjohnson_bball",
+  twitter: "@alexjohnson",
+  linkedin: "alex-johnson-athlete",
+
+  // Legal & Verification
+  felonyConviction: "no",
+  felonyDescription: "",
+  felonyYear: "",
+
+  // Profile Status
+  profileStatus: "under-review",
+
+  // Nested Objects
+  coach: {
+    name: "",
+    email: "",
+    phone: "",
+    yearOfWorkTogether: "",
+    achievementAndBackground: ""
+  },
+  socialMedia: {
+    twitterFollowers: "",
+    instagramFollowers: "",
+    linkedFollowers: "",
+    personalWebsiteUrl: ""
+  },
+  fundingGoal: {
+    fundUses: "",
+    revenueSharePercentage: "",
+    currentGoalsTimelines: ""
+  },
+
+  // Additional Metadata
+  city: "",
+  country: "",
+  coverPhoto: "",
+  governmentId: "",
+  investor: null,
+  isApproved: false,
+  isProfileCompleted: false,
+  profile_picture: "",
+  proofOfAthleteStatus: "",
+  state: "",
+  userType: "",
+  zip: "",
+}
+
+
+
+
+// Utility for deep merging objects (handles nested objects)
+function deepMerge(target: any, source: any) {
+  const output = { ...target }
+  if (target && typeof target === "object" && source && typeof source === "object") {
+    Object.keys(source).forEach((key) => {
+      if (
+        source[key] &&
+        typeof source[key] === "object" &&
+        !Array.isArray(source[key])
+      ) {
+        if (!(key in output)) {
+          output[key] = {}
+        }
+        output[key] = deepMerge(output[key], source[key])
+      } else {
+        output[key] = source[key]
+      }
+    })
+  }
+  return output
+}
+
+// Utility to update nested state immutably using a dot-separated path
+const updateNestedState = (obj: any, path: string, value: any) => {
+  const parts = path.split(".")
+  const newObj = structuredClone(obj) // Use structuredClone for deep copy
+  let temp = newObj
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i]
+    if (!temp[part] || typeof temp[part] !== "object" || Array.isArray(temp[part])) {
+      temp[part] = {}
+    }
+    temp = temp[part]
+  }
+
+  temp[parts[parts.length - 1]] = value
+  return newObj
+}
+
+
 export default function AthleteSettings() {
-  const [profileData, setProfileData] = useState({
-    // Basic Information
-    firstName: "Alex",
-    lastName: "Johnson",
-    email: "alex.johnson@email.com",
-    phone: "+1 (555) 123-4567",
-    dateOfBirth: "2002-03-15",
-    location: "Los Angeles, CA",
-
-    // Athletic Information
-    sport: "Basketball",
-    position: "Point Guard",
-    team: "UCLA Bruins",
-    height: "6'2\"",
-    weight: "185",
-    experience: "4",
-
-    // Coach Information
-    coachName: "",
-    coachEmail: "",
-    coachPhone: "",
-    coachYears: "",
-    coachAchievements: "",
-
-    // Bio and Goals
-    bio: "Passionate basketball player with dreams of making it to the NBA. Currently leading my university team with strong performance stats and leadership skills.",
-    careerGoals: "Get drafted in NBA first round, Win NBA Rookie of the Year, Secure major endorsement deal",
-
-    // Social Media
-    website: "",
-    instagram: "@alexjohnson_bball",
-    twitter: "@alexjohnson",
-    linkedin: "alex-johnson-athlete",
-
-    // Legal & Verification
-    felonyConviction: "",
-    felonyDescription: "",
-    felonyYear: "",
-
-    // Profile Status
-    profileStatus: "under-review",
-  })
-
+  const [profileData, setProfileData] = useState<AthleteProfileState>(initialProfileState)
   const [showFelonyDetails, setShowFelonyDetails] = useState(false)
 
-  const handleInputChange = (field: string, value: string) => {
-    setProfileData((prev) => ({ ...prev, [field]: value }))
+ const validateProfile = () => {
+  const errors: string[] = [];
 
-    if (field === "felonyConviction") {
-      setShowFelonyDetails(value === "yes")
-      if (value === "no") {
-        setProfileData((prev) => ({
-          ...prev,
-          felonyDescription: "",
-          felonyYear: "",
-        }))
-      }
+  const requiredFields: Record<string, string> = {
+    "First Name": profileData.firstName ?? "",
+    "Last Name": profileData.lastName ?? "",
+    "Email": profileData.email ?? "",
+    "Phone": profileData.phone ?? "",
+    "Date of Birth": profileData.dob ?? "",
+    "Location": profileData.location ?? "",
+    "Primary Sport": profileData.primarySport ?? "",
+    "Position/Speciality": profileData.positionOrSpeciality ?? "",
+    "Organization Name": profileData.organizationName ?? "",
+    "Height": profileData.height ?? "",
+    "Weight": profileData.weight ?? "",
+    "Years of Experience": profileData.yearOfExperience ?? "",
+    "Instagram Followers": profileData.socialMedia?.instagramFollowers ?? "",
+    "Twitter Followers": profileData.socialMedia?.twitterFollowers ?? "",
+    "LinkedIn Followers": profileData.socialMedia?.linkedFollowers ?? ""
+  };
+
+  if (profileData.felonyConviction === "yes") {
+    requiredFields["Felony Description"] = profileData.felonyDescription ?? "";
+    requiredFields["Felony Year"] = profileData.felonyYear ?? "";
+  }
+
+  for (const [label, value] of Object.entries(requiredFields)) {
+    if (value.toString().trim() === "") {
+      errors.push(`${label} is required`);
     }
   }
 
-  const handleSave = () => {
-    console.log("Saving profile data:", profileData)
-    // Here you would typically save to your backend
+  const integerFields: Record<string, string> = {
+    "Phone": profileData.phone ?? "",
+    "Height": profileData.height ?? "",
+    "Weight": profileData.weight ?? "",
+    "Years of Experience": profileData.yearOfExperience ?? "",
+    "Instagram Followers": profileData.socialMedia?.instagramFollowers ?? "",
+    "Twitter Followers": profileData.socialMedia?.twitterFollowers ?? "",
+    "LinkedIn Followers": profileData.socialMedia?.linkedFollowers ?? ""
+  };
+
+  if (profileData.felonyConviction === "yes") {
+    integerFields["Felony Year"] = profileData.felonyYear ?? "";
   }
+
+  for (const [label, value] of Object.entries(integerFields)) {
+    if (value && !/^\d+$/.test(value.toString())) {
+      errors.push(`${label} must be a number`);
+    }
+  }
+
+  return errors;
+};
+
+
+
+useEffect(() => {
+  const storedUser = localStorage.getItem("user")
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser)
+      const mergedData = deepMerge(initialProfileState, parsedUser)
+
+      // Set felony visibility once on load
+      if (mergedData.felonyConviction === "yes" || parsedUser.felonyConviction === true) {
+        setShowFelonyDetails(true)
+      } else {
+        setShowFelonyDetails(false)
+      }
+
+      setProfileData(mergedData)
+    } catch (err) {
+      console.error("Failed to parse stored user:", err)
+      setProfileData(initialProfileState)
+    } 
+  } else {
+    setProfileData(initialProfileState)
+  }
+}, []) // <-- 👈 ensure this runs only once on component mount
+
+
+  const handleInputChange = (path: string, value: string) => {
+  setProfileData((prev) => {
+    const newState = updateNestedState(prev, path, value)
+    localStorage.setItem("user", JSON.stringify(newState)) // persist
+    return newState
+  })
+}
+
+
+const handleSave = async () => {
+  try {
+    // Get all validation errors
+    const errors = validateProfile();
+    if (errors.length > 0) {
+      toast("Validation Failed", {
+        description: errors.join("\n"),
+      });
+      return;
+    }
+
+    const token = localStorage.getItem("access_token");
+    if (!token) throw new Error("Unauthorized: No access token found");
+
+    // Utility: ensure numeric fields only contain digits
+    const sanitizeNumber = (val: string) => val?.toString().replace(/\D/g, "") || "";
+
+    const payload = {
+      fullName: `${profileData.firstName} ${profileData.lastName}`,
+      phone: sanitizeNumber(profileData.phone),
+      dob: profileData.dob, // ✅ fixed to match state property
+      location: profileData.location,
+      primarySport: profileData.primarySport,
+      positionOrSpeciality: profileData.positionOrSpeciality,
+      organizationName: profileData.organizationName,
+      yearOfExperience: sanitizeNumber(profileData.yearOfExperience),
+      keyAchievements: profileData.keyAchievements,
+      currentPerformance: profileData.currentPerformance,
+      felonyConviction: profileData.felonyConviction === "yes",
+      felonyDescription: profileData.felonyConviction === "yes" ? profileData.felonyDescription : "",
+      felonyYear: profileData.felonyConviction === "yes" ? sanitizeNumber(profileData.felonyYear) : "",
+      height: sanitizeNumber(profileData.height),
+      weight: sanitizeNumber(profileData.weight),
+      biography: profileData.bio,
+      about: profileData.about,
+      coach: {
+        name: profileData.coach.name,
+        email: profileData.coach.email,
+        phone: sanitizeNumber(profileData.coach.phone),
+        yearOfWorkTogether: sanitizeNumber(profileData.coach.yearOfWorkTogether),
+        achievementAndBackground: profileData.coach.achievementAndBackground,
+      },
+      socialMedia: {
+        twitterFollowers: sanitizeNumber(profileData.socialMedia.twitterFollowers),
+        instagramFollowers: sanitizeNumber(profileData.socialMedia.instagramFollowers),
+        linkedFollowers: sanitizeNumber(profileData.socialMedia.linkedFollowers),
+        personalWebsiteUrl: profileData.socialMedia.personalWebsiteUrl,
+      },
+      fundingGoal: {
+        fundUses: profileData.fundingGoal.fundUses,
+        revenueSharePercentage: sanitizeNumber(profileData.fundingGoal.revenueSharePercentage),
+        currentGoalsTimelines: profileData.fundingGoal.currentGoalsTimelines,
+      },
+      email: profileData.email,
+      ...(profileData.id !== undefined && { id: profileData.id }),
+      ...(profileData.created_at !== undefined && { created_at: profileData.created_at }),
+      ...(profileData.access_token !== undefined && { access_token: profileData.access_token }),
+      ...(profileData.accountType !== undefined && { accountType: profileData.accountType }),
+      ...(profileData.profile_picture !== undefined && { profile_picture: profileData.profile_picture }),
+      ...(profileData.proofOfAthleteStatus !== undefined && {
+        proofOfAthleteStatus: profileData.proofOfAthleteStatus,
+      }),
+      ...(profileData.refresh_token !== undefined && { refresh_token: profileData.refresh_token }),
+      ...(profileData.role !== undefined && { role: profileData.role }),
+      ...(profileData.userId !== undefined && { userId: profileData.userId }),
+      profileStatus: profileData.profileStatus,
+      city: profileData.city || null,
+      country: profileData.country || null,
+      coverPhoto: profileData.coverPhoto || null,
+      governmentId: profileData.governmentId || null,
+      investor: profileData.investor || null,
+      isApproved: profileData.isApproved || false,
+      isProfileCompleted: profileData.isProfileCompleted || false,
+      state: profileData.state || null,
+      userType: profileData.userType || null,
+      zip: profileData.zip || null,
+    };
+
+    console.log("Sending profile update payload:", payload);
+    const response = await updateAthleteProfile(payload, token);
+    console.log("Profile updated:", response);
+
+    toast("Profile Updated", {
+      description: "Your profile was updated successfully.",
+    });
+  } catch (error: any) {
+    console.error("Profile update failed:", error.message);
+
+    toast("Profile Update Failed", {
+      description: error.message || "An error occurred while updating your profile.",
+    });
+  }
+};
+
+
 
   return (
     <AthleteLayout title="Profile Settings" description="Manage your athlete profile and account settings">
@@ -111,7 +443,6 @@ export default function AthleteSettings() {
           Save Changes
         </Button>
       </div>
-
       {/* Profile Status Alert */}
       {profileData.profileStatus === "under-review" && (
         <Card className="bg-amber-500/10 border-amber-500/20 mb-6">
@@ -135,7 +466,6 @@ export default function AthleteSettings() {
           </CardContent>
         </Card>
       )}
-
       <Tabs defaultValue="basic" className="space-y-6">
         <TabsList className="bg-slate-900/50 border-slate-800/50">
           <TabsTrigger value="basic" className="data-[state=active]:bg-slate-800">
@@ -160,7 +490,6 @@ export default function AthleteSettings() {
             Photos & Media
           </TabsTrigger>
         </TabsList>
-
         <TabsContent value="basic" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -180,7 +509,7 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="firstName"
-                    value={profileData.firstName}
+                    value={profileData.firstName || ""}
                     onChange={(e) => handleInputChange("firstName", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                   />
@@ -191,13 +520,12 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="lastName"
-                    value={profileData.lastName}
+                    value={profileData.lastName || ""}
                     onChange={(e) => handleInputChange("lastName", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-slate-300 flex items-center">
@@ -207,7 +535,7 @@ export default function AthleteSettings() {
                   <Input
                     id="email"
                     type="email"
-                    value={profileData.email}
+                    value={profileData.email || ""}
                     onChange={(e) => handleInputChange("email", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                   />
@@ -219,13 +547,12 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="phone"
-                    value={profileData.phone}
+                    value={profileData.phone || ""}
                     onChange={(e) => handleInputChange("phone", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="dateOfBirth" className="text-slate-300 flex items-center">
@@ -235,8 +562,8 @@ export default function AthleteSettings() {
                   <Input
                     id="dateOfBirth"
                     type="date"
-                    value={profileData.dateOfBirth}
-                    onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
+                    value={profileData.dob || ""}
+                    onChange={(e) => handleInputChange("dob", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                   />
                 </div>
@@ -247,7 +574,7 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="location"
-                    value={profileData.location}
+                    value={profileData.location || ""}
                     onChange={(e) => handleInputChange("location", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="City, State"
@@ -257,7 +584,6 @@ export default function AthleteSettings() {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="athletic" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -275,7 +601,7 @@ export default function AthleteSettings() {
                   <Label htmlFor="sport" className="text-slate-300">
                     Sport
                   </Label>
-                  <Select value={profileData.sport} onValueChange={(value) => handleInputChange("sport", value)}>
+                  <Select value={profileData.primarySport || ""} onValueChange={(value) => handleInputChange("primarySport", value)}>
                     <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
                       <SelectValue placeholder="Select your sport" />
                     </SelectTrigger>
@@ -297,27 +623,25 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="position"
-                    value={profileData.position}
-                    onChange={(e) => handleInputChange("position", e.target.value)}
+                    value={profileData.positionOrSpeciality || ""}
+                    onChange={(e) => handleInputChange("positionOrSpeciality", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., Point Guard, Quarterback"
                   />
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="team" className="text-slate-300">
                   Current Team/School
                 </Label>
                 <Input
                   id="team"
-                  value={profileData.team}
-                  onChange={(e) => handleInputChange("team", e.target.value)}
+                  value={profileData.organizationName || ""}
+                  onChange={(e) => handleInputChange("organizationName", e.target.value)}
                   className="bg-slate-800/50 border-slate-700 text-white"
                   placeholder="e.g., UCLA Bruins, Manchester United"
                 />
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="height" className="text-slate-300">
@@ -325,7 +649,7 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="height"
-                    value={profileData.height}
+                    value={profileData.height || ""}
                     onChange={(e) => handleInputChange("height", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., 6 feet 2 inches"
@@ -337,7 +661,7 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="weight"
-                    value={profileData.weight}
+                    value={profileData.weight || ""}
                     onChange={(e) => handleInputChange("weight", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., 185"
@@ -349,8 +673,8 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="experience"
-                    value={profileData.experience}
-                    onChange={(e) => handleInputChange("experience", e.target.value)}
+                    value={profileData.yearOfExperience || ""}
+                    onChange={(e) => handleInputChange("yearOfExperience", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., 4"
                   />
@@ -359,7 +683,6 @@ export default function AthleteSettings() {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="coach" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -379,8 +702,8 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="coachName"
-                    value={profileData.coachName}
-                    onChange={(e) => handleInputChange("coachName", e.target.value)}
+                    value={profileData.coach.name || ""}
+                    onChange={(e) => handleInputChange("coach.name", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., John Smith"
                   />
@@ -391,14 +714,13 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="coachYears"
-                    value={profileData.coachYears}
-                    onChange={(e) => handleInputChange("coachYears", e.target.value)}
+                    value={profileData.coach.yearOfWorkTogether || ""}
+                    onChange={(e) => handleInputChange("coach.yearOfWorkTogether", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., 2"
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="coachEmail" className="text-slate-300">
@@ -407,8 +729,8 @@ export default function AthleteSettings() {
                   <Input
                     id="coachEmail"
                     type="email"
-                    value={profileData.coachEmail}
-                    onChange={(e) => handleInputChange("coachEmail", e.target.value)}
+                    value={profileData.coach.email || ""}
+                    onChange={(e) => handleInputChange("coach.email", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="coach@email.com"
                   />
@@ -419,22 +741,21 @@ export default function AthleteSettings() {
                   </Label>
                   <Input
                     id="coachPhone"
-                    value={profileData.coachPhone}
-                    onChange={(e) => handleInputChange("coachPhone", e.target.value)}
+                    value={profileData.coach.phone || ""}
+                    onChange={(e) => handleInputChange("coach.phone", e.target.value)}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="+1 (555) 123-4567"
                   />
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="coachAchievements" className="text-slate-300">
                   Coach Achievements & Background
                 </Label>
                 <Textarea
                   id="coachAchievements"
-                  value={profileData.coachAchievements}
-                  onChange={(e) => handleInputChange("coachAchievements", e.target.value)}
+                  value={profileData.coach.achievementAndBackground || ""}
+                  onChange={(e) => handleInputChange("coach.achievementAndBackground", e.target.value)}
                   className="bg-slate-800/50 border-slate-700 text-white min-h-[120px]"
                   placeholder="Describe your coach's background, achievements, and coaching philosophy..."
                 />
@@ -442,7 +763,6 @@ export default function AthleteSettings() {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="goals" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -454,34 +774,95 @@ export default function AthleteSettings() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="bio" className="text-slate-300">
+                <Label htmlFor="biography" className="text-slate-300">
                   Biography
                 </Label>
                 <Textarea
-                  id="bio"
-                  value={profileData.bio}
+                  id="biography"
+                  value={profileData.bio || ""}
                   onChange={(e) => handleInputChange("bio", e.target.value)}
                   className="bg-slate-800/50 border-slate-700 text-white min-h-[120px]"
                   placeholder="Tell your story, background, and what makes you unique as an athlete..."
                 />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="careerGoals" className="text-slate-300">
-                  Career Goals
+                <Label htmlFor="about" className="text-slate-300">
+                  About (Short Description)
                 </Label>
                 <Textarea
-                  id="careerGoals"
-                  value={profileData.careerGoals}
-                  onChange={(e) => handleInputChange("careerGoals", e.target.value)}
-                  className="bg-slate-800/50 border-slate-700 text-white min-h-[120px]"
-                  placeholder="Share your short-term and long-term career objectives..."
+                  id="about"
+                  value={profileData.about || ""}
+                  onChange={(e) => handleInputChange("about", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white min-h-[80px]"
+                  placeholder="Provide a short description about yourself..."
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="keyAchievements" className="text-slate-300">
+                  Key Achievements (Comma-separated)
+                </Label>
+                <Textarea
+                  id="keyAchievements"
+                  value={profileData.keyAchievements || ""}
+                  onChange={(e) => handleInputChange("keyAchievements", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white min-h-[120px]"
+                  placeholder="List your major achievements, e.g., 'Olympic Gold Medalist, World Champion'"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="currentPerformance" className="text-slate-300">
+                  Current Performance
+                </Label>
+                <Input
+                  id="currentPerformance"
+                  value={profileData.currentPerformance || ""}
+                  onChange={(e) => handleInputChange("currentPerformance", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white"
+                  placeholder="e.g., 9.58s in 100m"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fundUses" className="text-slate-300">
+                  Funding Goal Uses (Comma-separated)
+                </Label>
+                <Textarea
+                  id="fundUses"
+                  value={profileData.fundingGoal.fundUses || ""}
+                  onChange={(e) => handleInputChange("fundingGoal.fundUses", e.target.value)}
+                  className="bg-slate-800/50 border-slate-700 text-white min-h-[80px]"
+                  placeholder="Describe how you plan to use the funds (e.g., training, travel, equipment)..."
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="revenueSharePercentage" className="text-slate-300">
+                    Revenue Share Percentage (%)
+                  </Label>
+                  <Input
+                    id="revenueSharePercentage"
+                    type="number"
+                    value={profileData.fundingGoal.revenueSharePercentage || ""}
+                    onChange={(e) => handleInputChange("fundingGoal.revenueSharePercentage", e.target.value)}
+                    className="bg-slate-800/50 border-slate-700 text-white"
+                    placeholder="e.g., 10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currentGoalsTimelines" className="text-slate-300">
+                    Current Goals & Timelines (Comma-separated)
+                  </Label>
+                  <Input
+                    id="currentGoalsTimelines"
+                    value={profileData.fundingGoal.currentGoalsTimelines || ""}
+                    onChange={(e) => handleInputChange("fundingGoal.currentGoalsTimelines", e.target.value)}
+                    className="bg-slate-800/50 border-slate-700 text-white"
+                    placeholder="e.g., 2025 Olympics Prep"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="social" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -495,64 +876,80 @@ export default function AthleteSettings() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="website" className="text-slate-300 flex items-center">
+                <Label htmlFor="personalWebsiteUrl" className="text-slate-300 flex items-center">
                   <Globe className="h-4 w-4 mr-2" />
-                  Personal Website
+                  Personal Website URL
                 </Label>
                 <Input
-                  id="website"
-                  value={profileData.website}
-                  onChange={(e) => handleInputChange("website", e.target.value)}
+                  id="personalWebsiteUrl"
+                  value={profileData.socialMedia.personalWebsiteUrl || ""}
+                  onChange={(e) => handleInputChange("socialMedia.personalWebsiteUrl", e.target.value)}
                   className="bg-slate-800/50 border-slate-700 text-white"
                   placeholder="https://yourwebsite.com"
                 />
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="instagram" className="text-slate-300 flex items-center">
+                  <Label htmlFor="instagramFollowers" className="text-slate-300 flex items-center">
                     <Instagram className="h-4 w-4 mr-2" />
-                    Instagram
+                    Instagram Followers
                   </Label>
-                  <Input
-                    id="instagram"
-                    value={profileData.instagram}
-                    onChange={(e) => handleInputChange("instagram", e.target.value)}
-                    className="bg-slate-800/50 border-slate-700 text-white"
-                    placeholder="@username"
-                  />
+                 <Input
+  id="instagramFollowers"
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={profileData.socialMedia.instagramFollowers || ""}
+  onChange={(e) => {
+    const value = e.target.value.replace(/\D/g, ""); // only digits
+    handleInputChange("socialMedia.instagramFollowers", value);
+  }}
+  className="bg-slate-800/50 border-slate-700 text-white"
+  placeholder="e.g., 50000"
+/>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="twitter" className="text-slate-300 flex items-center">
+                  <Label htmlFor="twitterFollowers" className="text-slate-300 flex items-center">
                     <Twitter className="h-4 w-4 mr-2" />
-                    Twitter
+                    Twitter Followers
                   </Label>
                   <Input
-                    id="twitter"
-                    value={profileData.twitter}
-                    onChange={(e) => handleInputChange("twitter", e.target.value)}
-                    className="bg-slate-800/50 border-slate-700 text-white"
-                    placeholder="@username"
-                  />
+  id="twitterFollowers"
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={profileData.socialMedia.twitterFollowers || ""}
+  onChange={(e) => {
+    const value = e.target.value.replace(/\D/g, "");
+    handleInputChange("socialMedia.twitterFollowers", value);
+  }}
+  className="bg-slate-800/50 border-slate-700 text-white"
+  placeholder="e.g., 100000"
+/>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="linkedin" className="text-slate-300 flex items-center">
+                  <Label htmlFor="linkedFollowers" className="text-slate-300 flex items-center">
                     <Linkedin className="h-4 w-4 mr-2" />
-                    LinkedIn
+                    LinkedIn Followers
                   </Label>
                   <Input
-                    id="linkedin"
-                    value={profileData.linkedin}
-                    onChange={(e) => handleInputChange("linkedin", e.target.value)}
-                    className="bg-slate-800/50 border-slate-700 text-white"
-                    placeholder="username"
-                  />
+  id="linkedFollowers"
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={profileData.socialMedia.linkedFollowers || ""}
+  onChange={(e) => {
+    const value = e.target.value.replace(/\D/g, "");
+    handleInputChange("socialMedia.linkedFollowers", value);
+  }}
+  className="bg-slate-800/50 border-slate-700 text-white"
+  placeholder="e.g., 2000"
+/>
                 </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="legal" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -572,11 +969,10 @@ export default function AthleteSettings() {
                     <AlertTriangle className="h-5 w-5 text-amber-400" />
                     <h3 className="text-white font-semibold">Background Check</h3>
                   </div>
-
                   <div className="space-y-3">
                     <Label className="text-slate-300 text-base">Have you ever been convicted of a felony?</Label>
                     <RadioGroup
-                      value={profileData.felonyConviction}
+                      value={profileData.felonyConviction || ""}
                       onValueChange={(value) => handleInputChange("felonyConviction", value)}
                       className="flex space-x-6"
                     >
@@ -594,7 +990,6 @@ export default function AthleteSettings() {
                       </div>
                     </RadioGroup>
                   </div>
-
                   {showFelonyDetails && (
                     <div className="space-y-4 mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-600/30">
                       <div className="space-y-2">
@@ -603,26 +998,24 @@ export default function AthleteSettings() {
                         </Label>
                         <Textarea
                           id="felonyDescription"
-                          value={profileData.felonyDescription}
+                          value={profileData.felonyDescription || ""}
                           onChange={(e) => handleInputChange("felonyDescription", e.target.value)}
                           className="bg-slate-800/50 border-slate-700 text-white min-h-[100px]"
                           placeholder="Provide a brief description of the conviction and the year it occurred..."
                         />
                       </div>
-
                       <div className="space-y-2">
                         <Label htmlFor="felonyYear" className="text-slate-300">
                           Year of Conviction
                         </Label>
                         <Input
                           id="felonyYear"
-                          value={profileData.felonyYear}
+                          value={profileData.felonyYear || ""}
                           onChange={(e) => handleInputChange("felonyYear", e.target.value)}
                           className="bg-slate-800/50 border-slate-700 text-white"
                           placeholder="e.g., 2020"
                         />
                       </div>
-
                       <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                         <p className="text-blue-300 text-sm">
                           <strong>Confidentiality Notice:</strong> This information is used solely for compliance and
@@ -631,7 +1024,6 @@ export default function AthleteSettings() {
                       </div>
                     </div>
                   )}
-
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
                     <div className="flex items-start space-x-3">
                       <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
@@ -646,7 +1038,6 @@ export default function AthleteSettings() {
                   </div>
                 </div>
               </div>
-
               {/* Terms and Conditions */}
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
@@ -672,7 +1063,6 @@ export default function AthleteSettings() {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="media" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -705,7 +1095,6 @@ export default function AthleteSettings() {
                   <p className="text-slate-400 text-sm">Recommended: 1200x400px, max 10MB</p>
                 </div>
               </div>
-
               <div className="space-y-4">
                 <Label className="text-slate-300">Action Photos & Videos</Label>
                 <FileUpload

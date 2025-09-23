@@ -2,8 +2,10 @@ import {
   Body,
   Controller,
   Get,
+  Post,
   Put,
   Req,
+  UploadedFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -17,7 +19,7 @@ import {
   RolesGuard,
   UserRole,
 } from '@app/common';
-import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { AnyFilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { UpdateAthleteProfileDto } from './dtos/update-athlete-profile.dto';
 
 @Controller()
@@ -51,13 +53,19 @@ export class AthleteController {
   @Roles(UserRole.ATHLETE)
   @Get('dashboard')
   async getDashboard(@Req() req: any) {
-    const athlete = req?.user?.athlete;
-    if (!athlete) throw new Error('Athlete not found');
-
+    const athlete = await formatUsersData(req?.user);
     const data = await this.athleteService.getAthleteDashboard(athlete);
     return {
       message: 'Athlete Dashboard Fetched Successfully.',
       data,
     };
+  }
+
+  @Roles(UserRole.ATHLETE)
+  @Post('upload-pitch')
+  @UseInterceptors(FileInterceptor('video'))
+  async uploadPitch(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
+    const athleteId = req.user.athlete.id;
+    return this.athleteService.uploadInvestmentPitch(athleteId, file);
   }
 }

@@ -136,7 +136,7 @@ export class AuthService {
 
     const payload = {
       sub: id,
-      role: role ,
+      role: role,
       is_deleted: false,
     };
 
@@ -351,19 +351,22 @@ export class AuthService {
         accountType === 'athlete' &&
         (dto.phone || dto.location || dto.name)
       ) {
-        athleteRes: Response = await lastValueFrom(
+        athleteRes = await lastValueFrom(
           this.athleteServiceClient.send('update_athlete_profile', {
             userId: dto.userId,
             phone: dto.phone,
             location: dto.location,
             name: dto.name,
+            investment_duration: dto.investment_duration,
+            total_funding: dto.total_funding,
+            min_investment: dto.min_investment,
           }),
         );
       } else if (
         accountType === 'investor' &&
         (dto.phone || dto.location || dto.name)
       ) {
-        investorRes: Response = await lastValueFrom(
+        investorRes = await lastValueFrom(
           this.investorServiceClient.send('update_investor_profile', {
             userId: dto.userId,
             phone: dto.phone,
@@ -375,7 +378,7 @@ export class AuthService {
         accountType === 'fan' &&
         (dto.phone || dto.location || dto.name)
       ) {
-        fanRes: Response = await lastValueFrom(
+        fanRes = await lastValueFrom(
           this.fanServiceClient.send('update_fan_profile', {
             userId: dto.userId,
             email: dto.email,
@@ -388,7 +391,6 @@ export class AuthService {
         `Profile RPC failed for ${accountType}: ${err?.message || err}`,
       );
     }
-
     return {
       message: 'Profile updated successfully.',
       data: {
@@ -403,6 +405,8 @@ export class AuthService {
             : 'pending',
         phone: dto.phone ?? null,
         location: dto.location ?? null,
+        investment_duration: dto.investment_duration ?? null,
+        total_funding: dto.total_funding ?? null,
         rpc: {
           athlete: athleteRes?.success ?? (athleteRes === null ? null : false),
           investor:

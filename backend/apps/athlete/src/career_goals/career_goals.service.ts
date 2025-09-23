@@ -5,6 +5,7 @@ import { CareerGoal } from '../models/career_goals.entity';
 import { Milestone } from '../models/milestone.entity';
 import { CareerGoalRepository } from './career_goals.repository';
 import { CreateCareerGoalDto, MilestoneDto } from './dtos/career_goal.dto';
+import { AthleteUpdate } from '../models/athlete_updates.entity';
 
 @Injectable()
 export class CareerGoalsService {
@@ -13,7 +14,10 @@ export class CareerGoalsService {
     private readonly milestoneRepo: MilestoneRepository,
   ) {}
 
-  async createCareerGoal(dto: CreateCareerGoalDto, athlete: Athlete): Promise<CareerGoal> {
+  async createCareerGoal(
+    dto: CreateCareerGoalDto,
+    athlete: Athlete,
+  ): Promise<CareerGoal> {
     // Create the main career goal entity
     const goal = new CareerGoal();
     goal.goalTitle = dto.goalTitle;
@@ -33,6 +37,11 @@ export class CareerGoalsService {
       });
     }
 
+     await AthleteUpdate.create({
+      title: 'New Career Goal Created',
+      description: `Athlete set a new career goal: "${dto.goalTitle}" (${dto.category}). Target Date: ${dto.targetDate}`,
+      athlete,
+    }).save();
     return this.goalRepo.create(goal);
   }
 
@@ -41,14 +50,20 @@ export class CareerGoalsService {
 
     // -- Overview calculation --
     const total = goals.length;
-    let completed = 0, inProgress = 0, allProgress: number[] = [];
+    let completed = 0,
+      inProgress = 0,
+      allProgress: number[] = [];
 
-    const data = goals.map(goal => {
+    const data = goals.map((goal) => {
       const milestones = goal.milestones || [];
       const totalMilestones = milestones.length;
 
-      const completedMilestones = milestones.filter(m => m.isCompleted).length;
-      const inProgressMilestones = milestones.filter(m => m.inProgress).length;
+      const completedMilestones = milestones.filter(
+        (m) => m.isCompleted,
+      ).length;
+      const inProgressMilestones = milestones.filter(
+        (m) => m.inProgress,
+      ).length;
 
       // Calculate progress %
       let progress = 0;
@@ -84,7 +99,7 @@ export class CareerGoalsService {
     };
   }
 
-   async deleteCareerGoal(goalId: number, athleteId: number): Promise<boolean> {
+  async deleteCareerGoal(goalId: number, athleteId: number): Promise<boolean> {
     return this.goalRepo.softDelete(goalId, athleteId);
   }
 }

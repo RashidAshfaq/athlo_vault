@@ -1,5 +1,5 @@
 import { AbstractEntity } from '@app/common';
-import { Entity, Column, OneToOne } from 'typeorm';
+import { Entity, Column, OneToOne, ManyToOne } from 'typeorm';
 import { Athlete } from './athlete.entity';
 
 @Entity('athlete_followers')
@@ -16,8 +16,13 @@ export class AthleteFollowers extends AbstractEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   personalWebsiteUrl: string;
 
-  @OneToOne(() => Athlete, (athlete) => athlete.socialMedia, {
-    cascade: true,
-  })
-  athlete: Athlete;
+  // @OneToOne(() => Athlete, (athlete) => athlete.socialMedia, {
+  //   cascade: true,
+  // })
+  // athlete: Athlete;
+
+    @ManyToOne(() => Athlete, (athlete) => athlete.socialMedias, {
+      onDelete: 'CASCADE',
+    })
+    athletes: Athlete;
 }

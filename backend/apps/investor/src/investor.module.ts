@@ -8,7 +8,7 @@ import { diskStorage } from 'multer';
 import { join } from 'path';
 import * as path from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AUTH_SERVICE, DatabaseModule, LoggerModule } from '@app/common';
+import { ATHLETE_SERVICE, AUTH_SERVICE, DatabaseModule, LoggerModule } from '@app/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Investor } from './models/investor.entity';
 import { ClientsModule, Transport } from '@nestjs/microservices';
@@ -54,6 +54,17 @@ import { InvestorMessageHandler } from './investor.message_handler';
           options: {
             host: configService.get('TCP_HOST'),
             port: configService.get('AUTH_TCP_PORT'),
+          },
+        }),
+        inject: [ConfigService],
+      },
+      {
+        name: ATHLETE_SERVICE,
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.TCP,
+          options: {
+            host: configService.get('TCP_HOST'),
+            port: configService.get('ATHLETE_TCP_PORT'),
           },
         }),
         inject: [ConfigService],

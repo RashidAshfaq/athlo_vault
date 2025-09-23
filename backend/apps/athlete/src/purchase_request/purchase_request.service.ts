@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PurchaseRequestRepository } from './purchase_request.repository';
 import { CreatePurchaseRequestDto } from './dtos/purchase_request.dto';
 import { PurchaseRequestStatus } from '../models/purchase_request.entity';
+import { AthleteUpdate } from '../models/athlete_updates.entity';
 
 @Injectable()
 export class PurchaseRequestService {
@@ -16,6 +17,13 @@ export class PurchaseRequestService {
     };
 
     const result = await this.requestRepo.create(req);
+
+     AthleteUpdate.create({
+      title: 'Purchase Request Submitted',
+      description: `Athlete submitted a purchase request for ${dto.itemServiceDescription} (Amount: $${dto.amount})`,
+      athlete,
+    }).save();
+
     return result;
   }
 
@@ -50,15 +58,15 @@ export class PurchaseRequestService {
     };
   }
 
-  async getPendingPurchaseRequestCount(){
+  async getPendingPurchaseRequestCount() {
     return await this.requestRepo.getPendingPurchaseRequestCount();
   }
 
-   async getPurchaseRequests(page: number, limit: number) {
+  async getPurchaseRequests(page: number, limit: number) {
     return await this.requestRepo.getPurchaseRequests(page, limit);
   }
 
-   async updatePurchaseRequests(dto: any, performedById: number) {
+  async updatePurchaseRequests(dto: any, performedById: number) {
     return await this.requestRepo.updatePurchaseRequests(dto, performedById);
   }
 }

@@ -32,6 +32,7 @@ export class AthleteRepository extends AbstractRepository<Athlete> {
     investment_duration?: string,
     total_funding?: number,
     min_investment?: number,
+    investment_days?: number,
   ): Promise<Athlete> {
     const athlete = await this.athleteRepository.findOne({
       where: { user: { id: userId } },
@@ -58,10 +59,14 @@ export class AthleteRepository extends AbstractRepository<Athlete> {
     if (typeof total_funding === 'number') {
       athlete.total_funding = total_funding;
     }
+
     if (typeof min_investment === 'number') {
       athlete.min_investment = min_investment;
     }
 
+    if (typeof investment_days === 'number') {
+      athlete.investment_days = investment_days;
+    }
     return this.athleteRepository.save(athlete);
   }
 
@@ -86,6 +91,21 @@ export class AthleteRepository extends AbstractRepository<Athlete> {
       // .leftJoinAndSelect('athlete.tennisSeason', 'tennisSeason')
       // .leftJoinAndSelect('athlete.golfSeason', 'golfSeason')
       // .leftJoinAndSelect('athlete.trackAndFieldsSeason', 'trackAndFieldsSeason')
+      .addSelect((subQuery) => {
+        return subQuery
+          .select('COUNT(DISTINCT inv.investorId)', 'total_investors')
+          .from('investments', 'inv')
+          .where('inv.athleteId = athlete.id');
+      }, 'total_investors')
+      .addSelect((subQuery) => {
+        return subQuery
+          .select(
+            'COALESCE(SUM(inv.investment_amount), 0)',
+            'total_invested_amount',
+          )
+          .from('investments', 'inv')
+          .where('inv.athleteId = athlete.id');
+      }, 'total_invested_amount')
       .where('athlete.is_deleted = false');
 
     if (sport) {
@@ -172,7 +192,27 @@ export class AthleteRepository extends AbstractRepository<Athlete> {
     if (athleteId) {
       query = query.andWhere('athlete.id = :athleteId', { athleteId });
     }
-    return await query.getMany();
+    // return await query.getMany();
+    const athletes = await query.getRawAndEntities();
+
+    // Combine base entity + computed fields
+    return athletes.entities.map((athlete, i) => {
+      const raw = athletes.raw[i];
+      const total_invested = parseFloat(raw.total_invested_amount ?? 0);
+      const total_funding = athlete.total_funding ?? 0;
+
+      // Calculate % funded
+      const investment_percentage = total_funding
+        ? ((total_invested / total_funding) * 100).toFixed(2)
+        : '0.00';
+
+      return {
+        ...athlete,
+        total_investors: parseInt(raw.total_investors ?? 0),
+        total_invested_amount: total_invested,
+        investment_percentage: investment_percentage,
+      };
+    });
   }
 
   async updateSeasonStatsId(
@@ -223,10 +263,10 @@ export class AthleteRepository extends AbstractRepository<Athlete> {
     );
   }
 
-  async findAndGetSocialMediaFollow(athleteId: number){
+  async findAndGetSocialMediaFollow(athleteId: number) {
     return await this.athleteRepository.findOne({
-      where: {id: athleteId},
-      relations: ['socialMedia']
-    })
+      where: { id: athleteId },
+      relations: ['socialMedia'],
+    });
   }
 }

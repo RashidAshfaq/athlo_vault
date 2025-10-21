@@ -24,6 +24,7 @@ import { FootballSeasonStats } from './football_season_stats.entity';
 import { InvestmentPitch } from './investment_pitch.entity';
 import { InvestorAthleteFollow } from './investor_athlete_follows.entity';
 import { AthleteUpdate } from './athlete_updates.entity';
+import { Investment } from 'apps/investor/src/models/investement.entity';
 
 @Entity('athletes')
 export class Athlete extends AbstractEntity {
@@ -89,6 +90,9 @@ export class Athlete extends AbstractEntity {
 
   @Column({ type: 'int', nullable: true })
   min_investment: number;
+
+  @Column({ type: 'int', nullable: true })
+  investment_days: number;
 
   @Column({ type: 'text', nullable: true })
   about: string;
@@ -229,8 +233,13 @@ export class Athlete extends AbstractEntity {
   })
   athleteFollow: InvestorAthleteFollow[];
 
-    @OneToMany(() => AthleteUpdate, (request) => request.athlete, {
+  @OneToMany(() => AthleteUpdate, (request) => request.athlete, {
     cascade: true,
   })
   updates: AthleteUpdate[];
+
+  @OneToMany(() => Investment, (request) => request.athlete, {
+    cascade: true,
+  })
+  investment: Investment[];
 }

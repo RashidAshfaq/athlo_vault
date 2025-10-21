@@ -72,4 +72,11 @@ export class UserDTO {
   @IsString()
   @IsOptional()
   investment_duration: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Max(100)
+  @Min(1)
+  @IsOptional()
+  investment_days: number;
 }

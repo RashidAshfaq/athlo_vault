@@ -360,6 +360,7 @@ export class AuthService {
             investment_duration: dto.investment_duration,
             total_funding: dto.total_funding,
             min_investment: dto.min_investment,
+            investment_days: dto.investment_days,
           }),
         );
       } else if (

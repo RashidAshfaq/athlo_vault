@@ -14,6 +14,7 @@ import { Investor } from './models/investor.entity';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { InvestorRepository } from './investor.repository';
 import { InvestorMessageHandler } from './investor.message_handler';
+import { InvestmentModule } from './investment/investment.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { InvestorMessageHandler } from './investor.message_handler';
         inject: [ConfigService],
       },
     ]),
+    InvestmentModule,
   ],
   controllers: [InvestorController, InvestorMessageHandler],
   providers: [InvestorService, InvestorRepository],

@@ -2,6 +2,7 @@ import { AbstractEntity } from '@app/common';
 import { User } from 'apps/auth/src/models/users.entity';
 import { Column, Entity, JoinColumn, OneToMany, OneToOne } from 'typeorm';
 import { UserMessage } from './user_message.entity';
+import { Investment } from 'apps/investor/src/models/investement.entity';
 
 @Entity('admins')
 export class Admin extends AbstractEntity {
@@ -24,4 +25,9 @@ export class Admin extends AbstractEntity {
     cascade: true,
   })
   sentMessages: UserMessage[];
+
+  @OneToMany(() => Investment, (request) => request.approved_by, {
+    cascade: true,
+  })
+  investment: Investment[];
 }

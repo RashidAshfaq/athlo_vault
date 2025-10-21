@@ -301,6 +301,7 @@ export class AthleteService {
       investment_duration,
       total_funding,
       min_investment,
+      investment_days,
     } = data;
     return await this.athleteRepo.updateUsingUserId(
       userId,
@@ -310,6 +311,7 @@ export class AthleteService {
       investment_duration,
       total_funding,
       min_investment,
+      investment_days,
     );
   }
 

@@ -2,6 +2,7 @@ import { Controller, Logger } from '@nestjs/common';
 import { AthleteService } from './athlete.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { Response } from '@app/common';
+import { GetAthletesFilterDto } from 'apps/investor/src/dtos/athlete.filter.dto';
 
 @Controller()
 export class AthleteMessageHandler {
@@ -106,6 +107,44 @@ export class AthleteMessageHandler {
     } catch (ex) {
       response.data.error = ex;
       response.message = ex.message;
+    }
+
+    return response;
+  }
+
+  @MessagePattern('get_athletes_for_investor')
+  async getAthletes(@Payload() filters: GetAthletesFilterDto): Promise<Response> {
+    const response: Response = {
+      success: false,
+      message: '',
+      data: [],
+    };
+
+    try {
+      const athletes = await this.athleteService.getFilteredAthletes(filters);
+      response.success = true;
+      response.data = athletes;
+      response.message = 'Athletes fetched successfully.';
+    } catch (error) {
+      this.logger.error('Error fetching athletes', error);
+      response.message = error.message;
+    }
+
+    return response;
+  }
+
+  @MessagePattern('investor_follow_athlete')
+  async handleInvestorFollow(@Payload() data: { investorId: number, athleteId: number, action: 'follow' | 'unfollow' }): Promise<Response> {
+    const response: Response = { success: false, message: '', data: {} };
+
+    try {
+      const result = await this.athleteService.handleInvestorFollow(data.investorId, data.athleteId, data.action);
+      response.success = true;
+      response.data = result;
+      response.message = `Investor ${data.action} action completed successfully.`;
+    } catch (error) {
+      this.logger.error(error);
+      response.message = error.message;
     }
 
     return response;

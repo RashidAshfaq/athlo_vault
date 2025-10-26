@@ -1,6 +1,15 @@
-import { Entity, Column, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  OneToOne,
+  OneToMany,
+} from 'typeorm';
 import { AbstractEntity } from '@app/common';
 import { User } from 'apps/auth/src/models/users.entity';
+import { InvestorAthleteFollow } from 'apps/athlete/src/models/investor_athlete_follows.entity';
+import { Investment } from './investement.entity';
 
 @Entity('investors')
 export class Investor extends AbstractEntity {
@@ -77,4 +86,14 @@ export class Investor extends AbstractEntity {
     name: 'userId',
   })
   user: User;
+
+  @OneToMany(() => InvestorAthleteFollow, (request) => request.athlete, {
+    cascade: true,
+  })
+  investorFollow: InvestorAthleteFollow[];
+
+    @OneToMany(() => Investment, (request) => request.investor, {
+    cascade: true,
+  })
+  investment: Investment[];
 }

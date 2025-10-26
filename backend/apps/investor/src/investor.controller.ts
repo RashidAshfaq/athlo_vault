@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Put,
+  Query,
   Req,
   UseGuards,
   UseInterceptors,
@@ -17,6 +18,7 @@ import {
   UserRole,
 } from '@app/common';
 import { UpdateInvestorProfileDto } from './dtos/investor.dto';
+import { GetAthletesFilterDto } from './dtos/athlete.filter.dto';
 
 @Controller()
 @UseInterceptors(LoggingInterceptor)
@@ -38,5 +40,23 @@ export class InvestorController {
       message: 'Investor Profile Fetched Successfully.',
       data: data,
     };
+  }
+
+  @Roles(UserRole.INVESTOR)
+  @Get('athletes')
+  async getAthletes(@Query() filters: GetAthletesFilterDto) {
+    const data = await this.investorService.fetchAthletes(filters);
+    return {
+      success: true,
+      message: 'Athletes fetched successfully',
+      data,
+    };
+  }
+
+  @Roles(UserRole.INVESTOR)
+  @Get('follow')
+  async followOrUnfollowAthlete(@Req() req: any, @Query() dto: GetAthletesFilterDto) {
+    const investorId = req.user?.investor?.id;
+    return this.investorService.followOrUnfollowAthlete(investorId, dto);
   }
 }

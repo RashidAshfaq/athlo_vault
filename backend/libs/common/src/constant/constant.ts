@@ -35,10 +35,54 @@ export function formatUsersData(user: any) {
       const { user: _athleteUser, ...athleteRest } = athlete;
       cleanAthlete = athleteRest;
     }
+    let currentSeasonStats = null;
+    if (cleanAthlete?.primarySport) {
+      const sport = cleanAthlete.primarySport.toLowerCase();
+      switch (sport) {
+        case 'football':
+          currentSeasonStats = cleanAthlete.footballSeason || null;
+          break;
+        case 'basketball':
+          currentSeasonStats =
+            cleanAthlete.basketballSeason || null;
+          break;
+        case 'swimming':
+          currentSeasonStats = cleanAthlete.swimmingSeason || null;
+          break;
+        case 'soccer':
+          currentSeasonStats = cleanAthlete.soccerSeason || null;
+          break;
+        case 'baseball':
+          currentSeasonStats = cleanAthlete.baseballSeason || null;
+          break;
+        case 'tennis':
+          currentSeasonStats = cleanAthlete.tennisSeason || null;
+          break;
+        case 'golf':
+          currentSeasonStats = cleanAthlete.golfSeason || null;
+          break;
+        case 'track and field':
+          currentSeasonStats =
+            cleanAthlete.trackAndFieldsSeason || null;
+          break;
+      }
+    }
+     const {
+      footballSeason,
+      basketballSeason,
+      swimmingSeason,
+      soccerSeason,
+      baseballSeason,
+      tennisSeason,
+      golfSeason,
+      trackAndFieldsSeason,
+      ...athleteDataWithoutSeasons
+    } = cleanAthlete;
     return {
       userId: user.id,
       ...usersData,
-      ...cleanAthlete,
+      ...athleteDataWithoutSeasons,
+      currentSeasonStats,
     };
   } else if (user.user) {
     const { user: _athleteUser, ...athleteRest } = user;

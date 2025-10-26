@@ -1,25 +1,24 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Header } from "@/components/header"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Header } from "@/components/header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { bulkUpdatePurchaseStatus } from "@/lib/admin-dashboard";
 import {
   Bar,
-  BarChart,
   Line,
-  LineChart,
   Pie,
   PieChart,
   Cell,
@@ -28,18 +27,15 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Legend,
-} from "recharts"
+  BarChart as ReBarChart,
+  LineChart as ReLineChart,
+} from "recharts";
 import {
   Users,
   DollarSign,
   TrendingUp,
   AlertTriangle,
-  UserCheck,
   UserX,
-  Settings,
-  BarChart3,
-  Shield,
-  FileText,
   Search,
   Mail,
   Eye,
@@ -60,208 +56,137 @@ import {
   Save,
   X,
   ShoppingCart,
-} from "lucide-react"
-import { athletes } from "@/lib/athlete-data"
-import { toast } from "@/hooks/use-toast"
+  BarChart as BarChartIcon, // important: icon alias
+} from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import {
+  fetchAdminDashboard,
+  updateUserProfile,
+  sendBulkMessages,
+  type AdminDashboardResponse,
+} from "@/lib/admin-dashboard";
 
+// ---------------- Types (local UI shapes) ----------------
 interface User {
-  email: string
-  firstName?: string
-  lastName?: string
-  userType: string
-  isAuthenticated: boolean
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  userType: string;
+  isAuthenticated: boolean;
+  access_token?: string;
+  data?: { access_token?: string };
 }
 
 interface UserData {
-  id: string
-  name: string
-  email: string
-  role: string
-  status: string
-  joinDate: string
-  lastActive: string
-  verificationStatus: string
-  onboardingStage: string
-  location?: string
-  phone?: string
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  joinDate: string;
+  lastActive: string;
+  verificationStatus: string;
+  onboardingStage: string;
+  location?: string;
+  phone?: string;
+  totalFunding?: number;
+investmentDuration?: number;
+minInvestment?: number;
+
 }
 
 interface ApprovalItem {
-  id: string
-  name: string
-  type: string
-  submittedDate: string
-  status: string
-  documents: string[]
-  sport?: string
-  investmentLimit?: string
-  kycStatus?: string
-  profileData?: any
+  id: string;
+  name: string;
+  type: string;
+  submittedDate: string;
+  status: string;
+  documents: string[];
+  sport?: string;
+  investmentLimit?: string;
+  kycStatus?: string;
+  profileData?: any;
 }
 
+type PurchaseStatus = "pending" | "approved" | "rejected";
+
 interface PurchaseRequest {
-  id: string
-  athleteName: string
-  athleteId: string
-  item: string
-  category: string
-  amount: number
-  vendor: string
-  status: string
-  submittedDate: string
-  reviewedDate: string | null
-  description: string
-  adminNotes: string | null
-  urgency: string
-  justification: string
-  type: string
-  submittedBy: string
+  id: string;
+  athleteName: string;
+  athleteId: string;
+  item: string;
+  category: string;
+  amount: number;
+  vendor: string;
+  status: PurchaseStatus;
+  submittedDate: string;
+  reviewedDate: string | null;
+  description: string;
+  adminNotes: string | null;
+  urgency: "urgent" | "high" | "medium" | "low";
+  justification: string;
+  type: string;
+  submittedBy: string;
 }
 
 export default function AdminDashboard() {
-  const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [roleFilter, setRoleFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [selectedApprovals, setSelectedApprovals] = useState<string[]>([])
-  const [messageDialog, setMessageDialog] = useState(false)
-  const [bulkMessage, setBulkMessage] = useState("")
-  const [viewUserDialog, setViewUserDialog] = useState(false)
-  const [editUserDialog, setEditUserDialog] = useState(false)
-  const [viewApprovalDialog, setViewApprovalDialog] = useState(false)
-  const [viewPurchaseDialog, setViewPurchaseDialog] = useState(false)
-  const [contractsDialog, setContractsDialog] = useState(false)
-  const [paymentsDialog, setPaymentsDialog] = useState(false)
-  const [selectedUserDetails, setSelectedUserDetails] = useState<UserData | null>(null)
-  const [selectedApprovalDetails, setSelectedApprovalDetails] = useState<ApprovalItem | null>(null)
-  const [selectedPurchaseDetails, setSelectedPurchaseDetails] = useState<PurchaseRequest | null>(null)
-  const [editingUser, setEditingUser] = useState<UserData | null>(null)
-  const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([])
-  const [selectedPurchaseRequests, setSelectedPurchaseRequests] = useState<string[]>([])
+  const router = useRouter();
 
+  // ---------- Auth / user ----------
+  const [user, setUser] = useState<User | null>(null);
+
+  // ---------- Pagination ----------
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(10);
+  const [totalPages, setTotalPages] = useState<number>(1);
+
+  // ---------- Loading ----------
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // ---------- Filters / UI local states ----------
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedApprovals, setSelectedApprovals] = useState<string[]>([]);
+  const [messageDialog, setMessageDialog] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState("");
+  const [viewUserDialog, setViewUserDialog] = useState(false);
+  const [editUserDialog, setEditUserDialog] = useState(false);
+  const [viewApprovalDialog, setViewApprovalDialog] = useState(false);
+  const [viewPurchaseDialog, setViewPurchaseDialog] = useState(false);
+  const [contractsDialog, setContractsDialog] = useState(false);
+  const [paymentsDialog, setPaymentsDialog] = useState(false);
+  const [selectedUserDetails, setSelectedUserDetails] = useState<UserData | null>(null);
+  const [selectedApprovalDetails, setSelectedApprovalDetails] = useState<ApprovalItem | null>(null);
+  const [selectedPurchaseDetails, setSelectedPurchaseDetails] = useState<PurchaseRequest | null>(null);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+
+  // ---------- Stats ----------
   const [stats, setStats] = useState({
-    totalUsers: 1247,
-    totalInvestments: 2840000,
-    activeAthletes: athletes.length,
-    pendingApprovals: 12,
-    monthlyGrowth: 12.5,
-    investmentGrowth: 8.3,
-    complianceRate: 94.2,
-    platformUptime: 99.9,
-  })
+    totalUsers: 0,
+    totalInvestments: 0,
+    activeAthletes: 0,
+    pendingApprovals: 0,
+    monthlyGrowth: 0,
+    investmentGrowth: 0,
+    complianceRate: 0,
+    platformUptime: 0,
+  });
 
-  // Mock user data
-  const [userData, setUserData] = useState<UserData[]>([
-    {
-      id: "1",
-      name: "John Smith",
-      email: "john@example.com",
-      role: "investor",
-      status: "active",
-      joinDate: "2024-01-15",
-      lastActive: "2 hours ago",
-      verificationStatus: "verified",
-      onboardingStage: "completed",
-      location: "New York, NY",
-      phone: "+1 (555) 123-4567",
-    },
-    {
-      id: "2",
-      name: "Sarah Johnson",
-      email: "sarah@example.com",
-      role: "athlete",
-      status: "pending",
-      joinDate: "2024-01-20",
-      lastActive: "1 day ago",
-      verificationStatus: "pending",
-      onboardingStage: "documents",
-      location: "Los Angeles, CA",
-      phone: "+1 (555) 987-6543",
-    },
-    {
-      id: "3",
-      name: "Mike Chen",
-      email: "mike@example.com",
-      role: "fan",
-      status: "active",
-      joinDate: "2024-01-18",
-      lastActive: "3 hours ago",
-      verificationStatus: "verified",
-      onboardingStage: "completed",
-      location: "Chicago, IL",
-      phone: "+1 (555) 456-7890",
-    },
-    {
-      id: "4",
-      name: "Emma Wilson",
-      email: "emma@example.com",
-      role: "investor",
-      status: "suspended",
-      joinDate: "2024-01-10",
-      lastActive: "1 week ago",
-      verificationStatus: "verified",
-      onboardingStage: "completed",
-      location: "Miami, FL",
-      phone: "+1 (555) 321-0987",
-    },
-  ])
+  // ---------- Data lists ----------
+  const [userData, setUserData] = useState<UserData[]>([]);
+  const [approvalData, setApprovalData] = useState<ApprovalItem[]>([]);
+  const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([]);
+  const [selectedPurchaseRequests, setSelectedPurchaseRequests] = useState<string[]>([]);
 
-  // Mock approval data
-  const approvalData: ApprovalItem[] = [
-    {
-      id: "1",
-      name: "Alex Rodriguez",
-      type: "athlete",
-      submittedDate: "2024-01-22",
-      status: "pending",
-      documents: ["ID", "Performance Stats", "Coach Verification"],
-      sport: "Baseball",
-      profileData: {
-        bio: "Professional baseball player with 5 years experience",
-        achievements: ["MVP 2023", "All-Star 2022"],
-        stats: { batting: ".325", home_runs: "42", rbi: "118" },
-      },
-    },
-    {
-      id: "2",
-      name: "Maya Patel",
-      type: "investor",
-      submittedDate: "2024-01-21",
-      status: "pending",
-      documents: ["KYC", "AML", "Financial Statements"],
-      investmentLimit: "$50,000",
-      kycStatus: "completed",
-      profileData: {
-        netWorth: "$500,000",
-        investmentExperience: "5+ years",
-        riskTolerance: "Moderate",
-      },
-    },
-    {
-      id: "3",
-      name: "Chris Thompson",
-      type: "athlete",
-      submittedDate: "2024-01-20",
-      status: "review",
-      documents: ["ID", "Performance Stats", "Medical Records"],
-      sport: "Basketball",
-      profileData: {
-        bio: "Rising basketball star from college league",
-        achievements: ["College Champion 2023"],
-        stats: { points: "24.5", assists: "8.2", rebounds: "6.1" },
-      },
-    },
-  ]
-
-  // Chart data
+  // ---------- Chart data (static examples) ----------
   const userRoleData = [
     { name: "Athletes", value: 342, color: "#3b82f6" },
     { name: "Investors", value: 189, color: "#10b981" },
     { name: "Fans", value: 716, color: "#f59e0b" },
     { name: "Institutions", value: 12, color: "#8b5cf6" },
-  ]
+  ];
 
   const investmentTrendData = [
     { month: "Jan", amount: 45000, users: 120 },
@@ -270,165 +195,373 @@ export default function AdminDashboard() {
     { month: "Apr", amount: 61000, users: 167 },
     { month: "May", amount: 55000, users: 154 },
     { month: "Jun", amount: 73000, users: 189 },
-  ]
+  ];
 
   const complianceData = [
     { name: "KYC Complete", value: 94.2, color: "#10b981" },
     { name: "AML Verified", value: 98.7, color: "#3b82f6" },
     { name: "Pending", value: 5.8, color: "#f59e0b" },
     { name: "Failed", value: 1.3, color: "#ef4444" },
-  ]
+  ];
 
+  // ---------- Boot: check user ----------
   useEffect(() => {
-    const userData = localStorage.getItem("user")
-    if (!userData) {
-      router.push("/auth/signin")
-      return
+    const userDataLS = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+    if (!userDataLS) {
+      router.push("/auth/signin");
+      return;
     }
 
-    const parsedUser = JSON.parse(userData)
+    const parsedUser = JSON.parse(userDataLS);
     if (parsedUser.userType !== "admin") {
-      router.push("/auth/signin")
-      return
+      router.push("/auth/signin");
+      return;
     }
 
-    setUser(parsedUser)
+    setUser(parsedUser);
 
-    // Load purchase requests from localStorage
-    const adminRequests = JSON.parse(localStorage.getItem("adminPurchaseRequests") || "[]")
-    setPurchaseRequests(adminRequests)
-  }, [router])
+    // fallback PRs (only if API returns nothing)
+    const adminRequests = JSON.parse(localStorage.getItem("adminPurchaseRequests") || "[]");
+    setPurchaseRequests(adminRequests);
+  }, [router]);
 
+  // ---------- Fetch dashboard from API (with filters) ----------
+  useEffect(() => {
+    if (!user) return;
+    const controller = new AbortController();
+    setLoading(true);
+
+    (async () => {
+      try {
+        const res: AdminDashboardResponse = await fetchAdminDashboard(
+          {
+            page,
+            limit,
+            status: statusFilter !== "all" ? statusFilter : undefined,
+            role: roleFilter !== "all" ? roleFilter : undefined,
+            search: searchTerm.trim() ? searchTerm.trim() : undefined,
+          },
+          controller.signal
+        );
+
+        // ---- Stats
+        const s = res?.data?.stats ?? {};
+        setStats((prev) => ({
+          totalUsers: s.totalUsers ?? prev.totalUsers,
+          totalInvestments: s.totalInvestments ?? prev.totalInvestments,
+          activeAthletes: s.activeAthletes ?? prev.activeAthletes,
+          pendingApprovals: s.pendingApprovals ?? prev.pendingApprovals,
+          monthlyGrowth: s.monthlyGrowth ?? prev.monthlyGrowth,
+          investmentGrowth: s.investmentGrowth ?? prev.investmentGrowth,
+          complianceRate: s.complianceRate ?? prev.complianceRate,
+          platformUptime: s.platformUptime ?? prev.platformUptime,
+        }));
+
+        // ---- Users
+        if (Array.isArray(res?.data?.users)) {
+          setUserData(
+            res.data!.users!.map((u) => ({
+              id: String(u.id ?? u.email),
+              name: (u.name ?? "").trim() || u.email || "Unknown User",
+              email: u.email ?? "-",
+              role: u.role ?? "user",
+              status: u.status ?? "pending",
+              joinDate: u.joinDate ?? "-",
+              lastActive: u.lastActive ?? "-",
+              verificationStatus: u.verificationStatus ?? "pending",
+              onboardingStage: u.onboardingStage ?? "unknown",
+              location: u.location ?? "",
+              phone: u.phone ?? "",
+            }))
+          );
+        } else {
+          setUserData([]);
+        }
+
+        // ---- Purchase Requests
+        if (Array.isArray(res?.data?.purchaseRequests)) {
+          const mapped = res.data!.purchaseRequests!;
+          setPurchaseRequests(mapped as any);
+          localStorage.setItem("adminPurchaseRequests", JSON.stringify(mapped));
+        }
+
+        // ---- Approvals
+        if (Array.isArray(res?.data?.approvals)) {
+          setApprovalData(
+            res.data!.approvals!.map((a) => ({
+              id: String(a.id),
+              name: a.name,
+              type: a.type,
+              submittedDate: a.submittedDate ?? "-",
+              status: a.status ?? "pending",
+              documents: a.documents ?? [],
+              sport: a.sport,
+              investmentLimit: a.investmentLimit,
+              kycStatus: a.kycStatus,
+              profileData: a.profileData,
+            }))
+          );
+        } else {
+          setApprovalData([]);
+        }
+
+        // ---- Pagination (prefer users, else requests, else approvals)
+        const p = res?.data?.pagination;
+        setTotalPages(p?.totalPages ? Number(p.totalPages) : 1);
+      } catch (e: any) {
+        if (e?.code === 401) {
+          router.push("/auth/signin");
+          return;
+        }
+        toast({
+          title: "Failed to load dashboard",
+          description: e?.message || "Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [user, page, limit, roleFilter, statusFilter, searchTerm, router]);
+
+  // ---------- Handlers ----------
   const handleLogout = () => {
-    localStorage.removeItem("user")
-    router.push("/")
-  }
+    localStorage.removeItem("user");
+    router.push("/");
+  };
 
   const handleUserSelection = (userId: string) => {
-    setSelectedUsers((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]))
-  }
+    setSelectedUsers((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
+  };
 
   const handleApprovalSelection = (approvalId: string) => {
     setSelectedApprovals((prev) =>
-      prev.includes(approvalId) ? prev.filter((id) => id !== approvalId) : [...prev, approvalId],
-    )
-  }
+      prev.includes(approvalId) ? prev.filter((id) => id !== approvalId) : [...prev, approvalId]
+    );
+  };
 
   const handlePurchaseRequestSelection = (requestId: string) => {
     setSelectedPurchaseRequests((prev) =>
-      prev.includes(requestId) ? prev.filter((id) => id !== requestId) : [...prev, requestId],
-    )
-  }
+      prev.includes(requestId) ? prev.filter((id) => id !== requestId) : [...prev, requestId]
+    );
+  };
 
-  const handleBulkAction = (action: string) => {
-    console.log(`Performing ${action} on users:`, selectedUsers)
+  const handleBulkAction = (action: "activate" | "suspend") => {
     toast({
       title: "Action Completed",
       description: `${action} applied to ${selectedUsers.length} users`,
-    })
-    setSelectedUsers([])
-  }
+    });
+    setSelectedUsers([]);
+  };
 
-  const handleBulkApproval = (action: string) => {
-    console.log(`Performing ${action} on approvals:`, selectedApprovals)
-    toast({
-      title: "Approval Action Completed",
-      description: `${action} applied to ${selectedApprovals.length} items`,
-    })
-    setSelectedApprovals([])
-  }
+  const handleBulkPurchaseAction = async (action: "approve" | "reject") => {
+  if (selectedPurchaseRequests.length === 0) return;
 
-  const handleBulkPurchaseAction = (action: string) => {
-    const updatedRequests = purchaseRequests.map((request) => {
-      if (selectedPurchaseRequests.includes(request.id)) {
+  const status = action === "approve" ? "approved" : "rejected" as const;
+  const note =
+    status === "approved"
+      ? "Approved in bulk by admin"
+      : "Rejected in bulk by admin";
+
+  try {
+    const res = await bulkUpdatePurchaseStatus({
+      purchaseIds: selectedPurchaseRequests.map((id) => Number(id)),
+      status,
+      note,
+    });
+
+    // Merge API updates into local state
+    setPurchaseRequests((prev) =>
+      prev.map((r) => {
+        const upd = res.requests.find((x) => String(x.id) === String(r.id));
+        if (!upd) return r;
         return {
-          ...request,
-          status: action === "approve" ? "approved" : "rejected",
-          reviewedDate: new Date().toISOString().split("T")[0],
-          adminNotes: action === "approve" ? "Approved by admin" : "Rejected by admin",
-        }
-      }
-      return request
-    })
+          ...r,
+          status: upd.requestStatus,
+          reviewedDate: upd.reviewedOn
+            ? upd.reviewedOn.split("T")[0]
+            : r.reviewedDate,
+          adminNotes: upd.admin_note ?? r.adminNotes,
+        };
+      })
+    );
 
-    setPurchaseRequests(updatedRequests)
-    localStorage.setItem("adminPurchaseRequests", JSON.stringify(updatedRequests))
+    localStorage.setItem(
+      "adminPurchaseRequests",
+      JSON.stringify(
+        purchaseRequests.map((r) => {
+          const upd = res.requests.find((x) => String(x.id) === String(r.id));
+          if (!upd) return r;
+          return {
+            ...r,
+            status: upd.requestStatus,
+            reviewedDate: upd.reviewedOn
+              ? upd.reviewedOn.split("T")[0]
+              : r.reviewedDate,
+            adminNotes: upd.admin_note ?? r.adminNotes,
+          };
+        })
+      )
+    );
 
     toast({
       title: "Purchase Requests Updated",
-      description: `${selectedPurchaseRequests.length} requests ${action}d`,
-    })
-    setSelectedPurchaseRequests([])
+      description: `${res.updated} request(s) ${status}.`,
+    });
+  } catch (e: any) {
+    toast({
+      title: "Bulk Update Failed",
+      description: e?.message || "Could not update purchase requests",
+      variant: "destructive",
+    });
+  } finally {
+    setSelectedPurchaseRequests([]);
   }
+};
 
-  const handleViewUser = (user: UserData) => {
-    setSelectedUserDetails(user)
-    setViewUserDialog(true)
-  }
 
-  const handleEditUser = (user: UserData) => {
-    setEditingUser({ ...user })
-    setEditUserDialog(true)
-  }
+  const handleViewUser = (u: UserData) => {
+    setSelectedUserDetails(u);
+    setViewUserDialog(true);
+  };
 
-  const handleSaveUser = () => {
-    if (editingUser) {
-      setUserData((prev) => prev.map((u) => (u.id === editingUser.id ? editingUser : u)))
+  const handleEditUser = (u: UserData) => {
+    setEditingUser({ ...u });
+    setEditUserDialog(true);
+  };
+
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
+
+    try {
+      const res = await updateUserProfile({
+  userId: editingUser.id,
+  name: editingUser.name,
+  email: editingUser.email,
+  role: editingUser.role,
+  status: editingUser.status,
+  phone: editingUser.phone,
+  location: editingUser.location,
+  totalFunding: editingUser.totalFunding,
+  investmentDuration: editingUser.investmentDuration,
+  minInvestment: editingUser.minInvestment,
+});
+
+      if (res.success && res.user) {
+        setUserData((prev) =>
+          prev.map((u) => {
+            if (u.id === editingUser.id) {
+              return {
+                ...u,
+                ...res.user,
+                id: String(res.user.id ?? u.id),
+                joinDate: u.joinDate,
+                lastActive: u.lastActive,
+                verificationStatus: u.verificationStatus,
+                onboardingStage: u.onboardingStage,
+              } as UserData;
+            }
+            return u;
+          })
+        );
+
+        toast({
+          title: "User Updated",
+          description: res.message || "User profile has been successfully updated",
+        });
+        setEditUserDialog(false);
+        setEditingUser(null);
+      } else {
+        toast({
+          title: "Update Failed",
+          description: res.message || "Could not update user",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
       toast({
-        title: "User Updated",
-        description: "User profile has been successfully updated",
-      })
-      setEditUserDialog(false)
-      setEditingUser(null)
+        title: "Update Error",
+        description: e?.message || "Something went wrong",
+        variant: "destructive",
+      });
     }
-  }
+  };
 
   const handleViewApproval = (approval: ApprovalItem) => {
-    setSelectedApprovalDetails(approval)
-    setViewApprovalDialog(true)
-  }
+    setSelectedApprovalDetails(approval);
+    setViewApprovalDialog(true);
+  };
 
   const handleViewPurchaseRequest = (request: PurchaseRequest) => {
-    setSelectedPurchaseDetails(request)
-    setViewPurchaseDialog(true)
-  }
+    setSelectedPurchaseDetails(request);
+    setViewPurchaseDialog(true);
+  };
 
-  const handleApprovePurchaseRequest = (requestId: string, approved: boolean) => {
-    const updatedRequests = purchaseRequests.map((request) => {
-      if (request.id === requestId) {
+  const handleApprovePurchaseRequest = async (requestId: string, approved: boolean) => {
+  const status = approved ? "approved" : "rejected" as const;
+  const note = approved
+    ? "Approved - Request meets requirements"
+    : "Rejected - Does not meet criteria";
+
+  try {
+    const res = await bulkUpdatePurchaseStatus({
+      purchaseIds: [Number(requestId)],
+      status,
+      note,
+    });
+
+    setPurchaseRequests((prev) =>
+      prev.map((r) => {
+        const upd = res.requests.find((x) => String(x.id) === String(r.id));
+        if (!upd) return r;
         return {
-          ...request,
-          status: approved ? "approved" : "rejected",
-          reviewedDate: new Date().toISOString().split("T")[0],
-          adminNotes: approved ? "Approved - Request meets requirements" : "Rejected - Does not meet criteria",
-        }
-      }
-      return request
-    })
+          ...r,
+          status: upd.requestStatus,
+          reviewedDate: upd.reviewedOn
+            ? upd.reviewedOn.split("T")[0]
+            : r.reviewedDate,
+          adminNotes: upd.admin_note ?? r.adminNotes,
+        };
+      })
+    );
 
-    setPurchaseRequests(updatedRequests)
-    localStorage.setItem("adminPurchaseRequests", JSON.stringify(updatedRequests))
+    localStorage.setItem(
+      "adminPurchaseRequests",
+      JSON.stringify(
+        purchaseRequests.map((r) => {
+          const upd = res.requests.find((x) => String(x.id) === String(r.id));
+          if (!upd) return r;
+          return {
+            ...r,
+            status: upd.requestStatus,
+            reviewedDate: upd.reviewedOn
+              ? upd.reviewedOn.split("T")[0]
+              : r.reviewedDate,
+            adminNotes: upd.admin_note ?? r.adminNotes,
+          };
+        })
+      )
+    );
 
     toast({
       title: approved ? "Request Approved" : "Request Rejected",
-      description: `Purchase request has been ${approved ? "approved" : "rejected"}`,
-    })
+      description: res.message || `Purchase request has been ${status}.`,
+    });
 
     if (selectedPurchaseDetails?.id === requestId) {
-      setViewPurchaseDialog(false)
+      setViewPurchaseDialog(false);
     }
-  }
-
-  const handleSendBulkMessage = () => {
-    console.log("Sending message to users:", selectedUsers, "Message:", bulkMessage)
+  } catch (e: any) {
     toast({
-      title: "Message Sent",
-      description: `Message sent to ${selectedUsers.length} users`,
-    })
-    setMessageDialog(false)
-    setBulkMessage("")
-    setSelectedUsers([])
+      title: "Update Failed",
+      description: e?.message || "Could not update request",
+      variant: "destructive",
+    });
   }
+};
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -438,65 +571,66 @@ export default function AdminDashboard() {
             <CheckCircle className="h-3 w-3 mr-1" />
             Approved
           </Badge>
-        )
+        );
+    }
+    switch (status) {
       case "rejected":
         return (
           <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
             <UserX className="h-3 w-3 mr-1" />
             Rejected
           </Badge>
-        )
+        );
       case "pending":
         return (
           <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
             <Clock className="h-3 w-3 mr-1" />
             Pending
           </Badge>
-        )
+        );
       case "under_review":
         return (
           <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
             <Eye className="h-3 w-3 mr-1" />
             Under Review
           </Badge>
-        )
+        );
       default:
-        return <Badge variant="outline">Unknown</Badge>
+        return <Badge variant="outline">Unknown</Badge>;
     }
-  }
+  };
 
   const getUrgencyBadge = (urgency: string) => {
     switch (urgency) {
       case "urgent":
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Urgent</Badge>
+        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Urgent</Badge>;
       case "high":
-        return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">High</Badge>
+        return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">High</Badge>;
       case "medium":
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Medium</Badge>
+        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Medium</Badge>;
       case "low":
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Low</Badge>
+        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Low</Badge>;
       default:
-        return <Badge variant="outline">-</Badge>
+        return <Badge variant="outline">-</Badge>;
     }
-  }
+  };
 
-  const filteredUsers = userData.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = roleFilter === "all" || user.role === roleFilter
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter
-    return matchesSearch && matchesRole && matchesStatus
-  })
+  const filteredUsers = userData.filter((u) => {
+    const s = searchTerm.toLowerCase();
+    const matchesSearch = u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s);
+    const matchesRole = roleFilter === "all" || u.role === roleFilter;
+    const matchesStatus = statusFilter === "all" || u.status === statusFilter;
+    return matchesSearch && matchesRole && matchesStatus;
+  });
 
-  const pendingPurchaseRequests = purchaseRequests.filter((req) => req.status === "pending").length
+  const pendingPurchaseRequests = purchaseRequests.filter((req) => req.status === "pending").length;
 
-  if (!user) {
+  if (!user || loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+        <div className="text-white">{!user ? "Loading..." : "Loading dashboard..."}</div>
       </div>
-    )
+    );
   }
 
   return (
@@ -513,7 +647,7 @@ export default function AdminDashboard() {
           </Button>
         </div>
 
-        {/* Enhanced Stats Overview */}
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-slate-900 border-slate-800">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -522,7 +656,10 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white">{stats.totalUsers.toLocaleString()}</div>
-              <p className="text-xs text-green-400">+{stats.monthlyGrowth}% from last month</p>
+              <p className="text-xs text-green-400">
+                {stats.monthlyGrowth >= 0 ? "+" : ""}
+                {stats.monthlyGrowth}% from last month
+              </p>
             </CardContent>
           </Card>
 
@@ -560,27 +697,17 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Main Content Tabs */}
+        {/* Main Tabs */}
         <Tabs defaultValue="users" className="space-y-6">
           <TabsList className="bg-slate-900 border-slate-800">
-            <TabsTrigger value="users" className="data-[state=active]:bg-slate-800">
-              User Management
-            </TabsTrigger>
-            <TabsTrigger value="approvals" className="data-[state=active]:bg-slate-800">
-              Approvals
-            </TabsTrigger>
-            <TabsTrigger value="purchase-requests" className="data-[state=active]:bg-slate-800">
-              Purchase Requests
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="data-[state=active]:bg-slate-800">
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="data-[state=active]:bg-slate-800">
-              Settings & Controls
-            </TabsTrigger>
+            <TabsTrigger value="users" className="data-[state=active]:bg-slate-800">User Management</TabsTrigger>
+            <TabsTrigger value="approvals" className="data-[state=active]:bg-slate-800">Approvals</TabsTrigger>
+            <TabsTrigger value="purchase-requests" className="data-[state=active]:bg-slate-800">Purchase Requests</TabsTrigger>
+            <TabsTrigger value="analytics" className="data-[state=active]:bg-slate-800">Analytics</TabsTrigger>
+            <TabsTrigger value="settings" className="data-[state=active]:bg-slate-800">Settings & Controls</TabsTrigger>
           </TabsList>
 
-          {/* User Management Tab */}
+          {/* User Management */}
           <TabsContent value="users" className="space-y-6">
             <Card className="bg-slate-900 border-slate-800">
               <CardHeader>
@@ -602,7 +729,10 @@ export default function AdminDashboard() {
                     <Button
                       variant="outline"
                       className="border-slate-700 text-slate-300 bg-transparent"
-                      onClick={() => handleBulkAction("activate")}
+                      onClick={() => {
+                        toast({ title: "Action Completed", description: `activate applied to ${selectedUsers.length} users` });
+                        setSelectedUsers([]);
+                      }}
                       disabled={selectedUsers.length === 0}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
@@ -611,7 +741,10 @@ export default function AdminDashboard() {
                     <Button
                       variant="outline"
                       className="border-slate-700 text-slate-300 bg-transparent"
-                      onClick={() => handleBulkAction("suspend")}
+                      onClick={() => {
+                        toast({ title: "Action Completed", description: `suspend applied to ${selectedUsers.length} users` });
+                        setSelectedUsers([]);
+                      }}
                       disabled={selectedUsers.length === 0}
                     >
                       <Ban className="h-4 w-4 mr-2" />
@@ -629,12 +762,21 @@ export default function AdminDashboard() {
                       <Input
                         placeholder="Search users..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                          setPage(1);
+                          setSearchTerm(e.target.value);
+                        }}
                         className="pl-10 bg-slate-800 border-slate-700 text-white"
                       />
                     </div>
                   </div>
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <Select
+                    value={roleFilter}
+                    onValueChange={(v) => {
+                      setPage(1);
+                      setRoleFilter(v);
+                    }}
+                  >
                     <SelectTrigger className="w-40 bg-slate-800 border-slate-700 text-white">
                       <SelectValue placeholder="Role" />
                     </SelectTrigger>
@@ -647,7 +789,13 @@ export default function AdminDashboard() {
                       <SelectItem value="admin">Admins</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(v) => {
+                      setPage(1);
+                      setStatusFilter(v);
+                    }}
+                  >
                     <SelectTrigger className="w-40 bg-slate-800 border-slate-700 text-white">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
@@ -661,7 +809,7 @@ export default function AdminDashboard() {
                   </Select>
                 </div>
 
-                {/* User Table */}
+                {/* Table */}
                 <div className="rounded-md border border-slate-800">
                   <Table>
                     <TableHeader>
@@ -670,11 +818,8 @@ export default function AdminDashboard() {
                           <Checkbox
                             checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
                             onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedUsers(filteredUsers.map((u) => u.id))
-                              } else {
-                                setSelectedUsers([])
-                              }
+                              if (checked) setSelectedUsers(filteredUsers.map((u) => u.id));
+                              else setSelectedUsers([]);
                             }}
                           />
                         </TableHead>
@@ -687,82 +832,130 @@ export default function AdminDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredUsers.map((user) => (
-                        <TableRow key={user.id} className="border-slate-800">
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedUsers.includes(user.id)}
-                              onCheckedChange={() => handleUserSelection(user.id)}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="text-white font-medium">{user.name}</div>
-                              <div className="text-slate-400 text-sm">{user.email}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="border-slate-600 text-slate-300">
-                              {user.role}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={user.status === "active" ? "default" : "secondary"}
-                              className={
-                                user.status === "active"
-                                  ? "bg-green-600 text-white"
-                                  : user.status === "pending"
-                                    ? "bg-amber-600 text-white"
-                                    : "bg-red-600 text-white"
-                              }
-                            >
-                              {user.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={
-                                user.verificationStatus === "verified"
-                                  ? "border-green-600 text-green-400"
-                                  : "border-amber-600 text-amber-400"
-                              }
-                            >
-                              {user.verificationStatus}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-slate-400">{user.lastActive}</TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-slate-700 text-slate-300 bg-transparent"
-                                onClick={() => handleViewUser(user)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-slate-700 text-slate-300 bg-transparent"
-                                onClick={() => handleEditUser(user)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </div>
+                      {filteredUsers.length === 0 ? (
+                        <TableRow className="border-slate-800">
+                          <TableCell colSpan={7} className="text-center text-slate-400 py-6">
+                            No users to display
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : (
+                        filteredUsers.map((u) => (
+                          <TableRow key={u.id} className="border-slate-800">
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedUsers.includes(u.id)}
+                                onCheckedChange={() => handleUserSelection(u.id)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="text-white font-medium">{u.name}</div>
+                                <div className="text-slate-400 text-sm">{u.email}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="border-slate-600 text-slate-300">
+                                {u.role}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={u.status === "active" ? "default" : "secondary"}
+                                className={
+                                  u.status === "active"
+                                    ? "bg-green-600 text-white"
+                                    : u.status === "pending"
+                                    ? "bg-amber-600 text-white"
+                                    : "bg-red-600 text-white"
+                                }
+                              >
+                                {u.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  u.verificationStatus === "verified"
+                                    ? "border-green-600 text-green-400"
+                                    : "border-amber-600 text-amber-400"
+                                }
+                              >
+                                {u.verificationStatus}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-slate-400">{u.lastActive}</TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-slate-700 text-slate-300 bg-transparent"
+                                  onClick={() => handleViewUser(u)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-slate-700 text-slate-300 bg-transparent"
+                                  onClick={() => handleEditUser(u)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
+                </div>
+
+                {/* Pagination */}
+                <div className="flex justify-end items-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    className="border-slate-700 text-slate-300 bg-transparent"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Prev
+                  </Button>
+                  <span className="text-slate-400 text-sm">Page {page} of {totalPages}</span>
+                  <Button
+                    variant="outline"
+                    className="border-slate-700 text-slate-300 bg-transparent"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+
+                  <Select
+                    value={String(limit)}
+                    onValueChange={(v) => {
+                      setPage(1);
+                      setLimit(Number(v));
+                    }}
+                  >
+                    <SelectTrigger className="w-24 bg-slate-800 border-slate-700 text-white">
+                      <SelectValue placeholder="Limit" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-700">
+                      {[10, 20, 50].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Approvals Tab */}
+          {/* Approvals */}
           <TabsContent value="approvals" className="space-y-6">
             <Card className="bg-slate-900 border-slate-800">
               <CardHeader>
@@ -773,107 +966,76 @@ export default function AdminDashboard() {
                       Centralized approval queue for all user types
                     </CardDescription>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      className="border-green-600 text-green-400 bg-transparent hover:bg-green-600 hover:text-white"
-                      onClick={() => handleBulkApproval("approve")}
-                      disabled={selectedApprovals.length === 0}
-                    >
-                      <UserCheck className="h-4 w-4 mr-2" />
-                      Approve Selected
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-red-600 text-red-400 bg-transparent hover:bg-red-600 hover:text-white"
-                      onClick={() => handleBulkApproval("reject")}
-                      disabled={selectedApprovals.length === 0}
-                    >
-                      <UserX className="h-4 w-4 mr-2" />
-                      Reject Selected
-                    </Button>
-                  </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {approvalData.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-4 bg-slate-800 rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <Checkbox
-                          checked={selectedApprovals.includes(item.id)}
-                          onCheckedChange={() => handleApprovalSelection(item.id)}
-                        />
-                        <div className="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold">
-                            {item.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-white font-medium">{item.name}</p>
-                          <div className="flex items-center space-x-2 text-sm text-slate-400">
-                            <Badge variant="outline" className="border-slate-600 text-slate-300">
-                              {item.type}
-                            </Badge>
-                            {item.sport && <span>• {item.sport}</span>}
-                            {item.investmentLimit && <span>• Limit: {item.investmentLimit}</span>}
-                            <span>• Submitted {item.submittedDate}</span>
+                {approvalData.length === 0 ? (
+                  <div className="text-slate-400">No approvals to review</div>
+                ) : (
+                  <div className="space-y-4">
+                    {approvalData.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-4 bg-slate-800 rounded-lg">
+                        <div className="flex items-center space-x-4">
+                          <Checkbox
+                            checked={selectedApprovals.includes(item.id)}
+                            onCheckedChange={() => handleApprovalSelection(item.id)}
+                          />
+                          <div className="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold">
+                              {item.name.split(" ").map((n) => n[0]).join("")}
+                            </span>
                           </div>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span className="text-xs text-slate-500">Documents:</span>
-                            {item.documents.map((doc, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs bg-slate-700 text-slate-300">
-                                {doc}
+                          <div>
+                            <p className="text-white font-medium">{item.name}</p>
+                            <div className="flex items-center space-x-2 text-sm text-slate-400">
+                              <Badge variant="outline" className="border-slate-600 text-slate-300">
+                                {item.type}
                               </Badge>
-                            ))}
+                              {item.sport && <span>• {item.sport}</span>}
+                              {item.investmentLimit && <span>• Limit: {item.investmentLimit}</span>}
+                              <span>• Submitted {item.submittedDate}</span>
+                            </div>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <span className="text-xs text-slate-500">Documents:</span>
+                              {item.documents.map((doc, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs bg-slate-700 text-slate-300">
+                                  {doc}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant="outline"
+                            className={
+                              item.status === "pending"
+                                ? "border-amber-600 text-amber-400"
+                                : "border-blue-600 text-blue-400"
+                            }
+                          >
+                            {item.status}
+                          </Badge>
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-slate-700 text-slate-300 bg-transparent"
+                              onClick={() => handleViewApproval(item)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            item.status === "pending"
-                              ? "border-amber-600 text-amber-400"
-                              : "border-blue-600 text-blue-400"
-                          }
-                        >
-                          {item.status}
-                        </Badge>
-                        <div className="flex space-x-2">
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                            <UserCheck className="h-4 w-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
-                          >
-                            <UserX className="h-4 w-4 mr-1" />
-                            Reject
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-slate-700 text-slate-300 bg-transparent"
-                            onClick={() => handleViewApproval(item)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Purchase Requests Tab */}
+          {/* Purchase Requests */}
           <TabsContent value="purchase-requests" className="space-y-6">
             <Card className="bg-slate-900 border-slate-800">
               <CardHeader>
@@ -980,7 +1142,7 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Analytics Tab */}
+          {/* Analytics (static demo charts) */}
           <TabsContent value="analytics" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-slate-900 border-slate-800">
@@ -1009,8 +1171,7 @@ export default function AdminDashboard() {
                           outerRadius={80}
                           fill="#8884d8"
                           dataKey="value"
-                          label={({ percent }) => percent !== undefined ? `${(percent * 100).toFixed(0)}%` : ""}
-
+                          label={({ percent }) => (percent !== undefined ? `${(percent * 100).toFixed(0)}%` : "")}
                         >
                           {userRoleData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -1039,7 +1200,7 @@ export default function AdminDashboard() {
                     className="h-[300px]"
                   >
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={investmentTrendData}>
+                      <ReLineChart data={investmentTrendData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="month" stroke="#9ca3af" />
                         <YAxis stroke="#9ca3af" />
@@ -1047,7 +1208,7 @@ export default function AdminDashboard() {
                         <Legend />
                         <Line type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={2} />
                         <Line type="monotone" dataKey="users" stroke="#10b981" strokeWidth={2} />
-                      </LineChart>
+                      </ReLineChart>
                     </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
@@ -1056,7 +1217,7 @@ export default function AdminDashboard() {
               <Card className="bg-slate-900 border-slate-800">
                 <CardHeader>
                   <CardTitle className="text-white flex items-center">
-                    <BarChart3 className="h-5 w-5 mr-2" />
+                    <BarChartIcon className="h-5 w-5 mr-2" />
                     KYC/AML Compliance
                   </CardTitle>
                 </CardHeader>
@@ -1068,13 +1229,13 @@ export default function AdminDashboard() {
                     className="h-[300px]"
                   >
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={complianceData}>
+                      <ReBarChart data={complianceData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9ca3af" />
                         <YAxis stroke="#9ca3af" />
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <Bar dataKey="value" fill="#3b82f6" />
-                      </BarChart>
+                      </ReBarChart>
                     </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
@@ -1111,7 +1272,7 @@ export default function AdminDashboard() {
             </div>
           </TabsContent>
 
-          {/* Settings & Controls Tab */}
+          {/* Settings & Controls */}
           <TabsContent value="settings" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-slate-900 border-slate-800">
@@ -1199,7 +1360,7 @@ export default function AdminDashboard() {
               <Card className="bg-slate-900 border-slate-800">
                 <CardHeader>
                   <CardTitle className="text-white flex items-center">
-                    <Settings className="h-5 w-5 mr-2" />
+                    <Globe className="h-5 w-5 mr-2" />
                     Platform Settings
                   </CardTitle>
                 </CardHeader>
@@ -1210,7 +1371,6 @@ export default function AdminDashboard() {
                       className="border-slate-700 text-slate-300 justify-start bg-transparent"
                       onClick={() => router.push("/admin/settings/investment-policies")}
                     >
-                      <FileText className="h-4 w-4 mr-2" />
                       Investment Policies
                     </Button>
                     <Button
@@ -1218,7 +1378,6 @@ export default function AdminDashboard() {
                       className="border-slate-700 text-slate-300 justify-start bg-transparent"
                       onClick={() => router.push("/admin/settings/user-verification")}
                     >
-                      <Users className="h-4 w-4 mr-2" />
                       User Verification Settings
                     </Button>
                     <Button
@@ -1226,7 +1385,6 @@ export default function AdminDashboard() {
                       className="border-slate-700 text-slate-300 justify-start bg-transparent"
                       onClick={() => router.push("/admin/settings/security")}
                     >
-                      <Shield className="h-4 w-4 mr-2" />
                       Security Configuration
                     </Button>
                     <Button
@@ -1234,7 +1392,6 @@ export default function AdminDashboard() {
                       className="border-slate-700 text-slate-300 justify-start bg-transparent"
                       onClick={() => router.push("/admin/settings/branding")}
                     >
-                      <Globe className="h-4 w-4 mr-2" />
                       Platform Branding
                     </Button>
                   </div>
@@ -1309,9 +1466,39 @@ export default function AdminDashboard() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleSendBulkMessage}
+                  onClick={async () => {
+                    try {
+                      const res = await sendBulkMessages({
+                        message: bulkMessage,
+                        userIds: selectedUsers.map((id) => Number(id)),
+                      });
+
+                      if (res.success) {
+                        toast({
+                          title: "✅ Message Sent Successfully",
+                          description: `Delivered to ${res.recipients?.length ?? 0} users.`,
+                        });
+
+                        setMessageDialog(false);
+                        setBulkMessage("");
+                        setSelectedUsers([]);
+                      } else {
+                        toast({
+                          title: "Failed",
+                          description: res.message || "Could not send messages",
+                          variant: "destructive",
+                        });
+                      }
+                    } catch (e: any) {
+                      toast({
+                        title: "Error",
+                        description: e?.message || "Something went wrong",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
                   className="bg-blue-600 hover:bg-blue-700"
-                  disabled={!bulkMessage.trim()}
+                  disabled={!bulkMessage.trim() || selectedUsers.length === 0}
                 >
                   Send Message
                 </Button>
@@ -1325,9 +1512,7 @@ export default function AdminDashboard() {
           <DialogContent className="bg-slate-900 border-slate-800 max-w-2xl">
             <DialogHeader>
               <DialogTitle className="text-white">User Details</DialogTitle>
-              <DialogDescription className="text-slate-400">
-                Complete profile information and activity
-              </DialogDescription>
+              <DialogDescription className="text-slate-400">Complete profile information and activity</DialogDescription>
             </DialogHeader>
             {selectedUserDetails && (
               <div className="space-y-6">
@@ -1354,8 +1539,8 @@ export default function AdminDashboard() {
                         selectedUserDetails.status === "active"
                           ? "bg-green-600 text-white"
                           : selectedUserDetails.status === "pending"
-                            ? "bg-amber-600 text-white"
-                            : "bg-red-600 text-white"
+                          ? "bg-amber-600 text-white"
+                          : "bg-red-600 text-white"
                       }
                     >
                       {selectedUserDetails.status}
@@ -1401,8 +1586,8 @@ export default function AdminDashboard() {
                   <Button
                     className="bg-blue-600 hover:bg-blue-700"
                     onClick={() => {
-                      setViewUserDialog(false)
-                      handleEditUser(selectedUserDetails)
+                      setViewUserDialog(false);
+                      handleEditUser(selectedUserDetails);
                     }}
                   >
                     <Edit className="h-4 w-4 mr-2" />
@@ -1415,117 +1600,205 @@ export default function AdminDashboard() {
         </Dialog>
 
         {/* Edit User Dialog */}
-        <Dialog open={editUserDialog} onOpenChange={setEditUserDialog}>
-          <DialogContent className="bg-slate-900 border-slate-800 max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-white">Edit User Profile</DialogTitle>
-              <DialogDescription className="text-slate-400">Update user information and settings</DialogDescription>
-            </DialogHeader>
-            {editingUser && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="edit-name" className="text-slate-300">
-                      Name
-                    </Label>
-                    <Input
-                      id="edit-name"
-                      value={editingUser.name}
-                      onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                      className="bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-email" className="text-slate-300">
-                      Email
-                    </Label>
-                    <Input
-                      id="edit-email"
-                      value={editingUser.email}
-                      onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                      className="bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-role" className="text-slate-300">
-                      Role
-                    </Label>
-                    <Select
-                      value={editingUser.role}
-                      onValueChange={(value) => setEditingUser({ ...editingUser, role: value })}
-                    >
-                      <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
-                        <SelectItem value="athlete">Athlete</SelectItem>
-                        <SelectItem value="investor">Investor</SelectItem>
-                        <SelectItem value="fan">Fan</SelectItem>
-                        <SelectItem value="institution">Institution</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-status" className="text-slate-300">
-                      Status
-                    </Label>
-                    <Select
-                      value={editingUser.status}
-                      onValueChange={(value) => setEditingUser({ ...editingUser, status: value })}
-                    >
-                      <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="suspended">Suspended</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-location" className="text-slate-300">
-                      Location
-                    </Label>
-                    <Input
-                      id="edit-location"
-                      value={editingUser.location || ""}
-                      onChange={(e) => setEditingUser({ ...editingUser, location: e.target.value })}
-                      className="bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-phone" className="text-slate-300">
-                      Phone
-                    </Label>
-                    <Input
-                      id="edit-phone"
-                      value={editingUser.phone || ""}
-                      onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })}
-                      className="bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setEditUserDialog(false)}
-                    className="border-slate-700 text-slate-300 bg-transparent"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSaveUser} className="bg-green-600 hover:bg-green-700">
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Changes
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+<Dialog open={editUserDialog} onOpenChange={setEditUserDialog}>
+  <DialogContent className="bg-slate-900 border-slate-800 max-w-2xl">
+    <DialogHeader>
+      <DialogTitle className="text-white">Edit User Profile</DialogTitle>
+      <DialogDescription className="text-slate-400">
+        Update user information and settings
+      </DialogDescription>
+    </DialogHeader>
+
+    {editingUser && (
+      <div className="space-y-6">
+        {/* Base user info */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="edit-name" className="text-slate-300">
+              Name
+            </Label>
+            <Input
+              id="edit-name"
+              value={editingUser.name}
+              onChange={(e) =>
+                setEditingUser({ ...editingUser, name: e.target.value })
+              }
+              className="bg-slate-800 border-slate-700 text-white"
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-email" className="text-slate-300">
+              Email
+            </Label>
+            <Input
+              id="edit-email"
+              value={editingUser.email}
+              onChange={(e) =>
+                setEditingUser({ ...editingUser, email: e.target.value })
+              }
+              className="bg-slate-800 border-slate-700 text-white"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-role" className="text-slate-300">
+              Role
+            </Label>
+            <Select
+              value={editingUser.role}
+              onValueChange={(value) =>
+                setEditingUser({ ...editingUser, role: value })
+              }
+            >
+              <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-slate-700">
+                <SelectItem value="athlete">Athlete</SelectItem>
+                <SelectItem value="investor">Investor</SelectItem>
+                <SelectItem value="fan">Fan</SelectItem>
+                <SelectItem value="institution">Institution</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="edit-status" className="text-slate-300">
+              Status
+            </Label>
+            <Select
+              value={editingUser.status}
+              onValueChange={(value) =>
+                setEditingUser({ ...editingUser, status: value })
+              }
+            >
+              <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-slate-700">
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="edit-location" className="text-slate-300">
+              Location
+            </Label>
+            <Input
+              id="edit-location"
+              value={editingUser.location || ""}
+              onChange={(e) =>
+                setEditingUser({ ...editingUser, location: e.target.value })
+              }
+              className="bg-slate-800 border-slate-700 text-white"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-phone" className="text-slate-300">
+              Phone
+            </Label>
+            <Input
+              id="edit-phone"
+              value={editingUser.phone || ""}
+              onChange={(e) =>
+                setEditingUser({ ...editingUser, phone: e.target.value })
+              }
+              className="bg-slate-800 border-slate-700 text-white"
+            />
+          </div>
+        </div>
+
+        {/* ✅ Athlete-only fields */}
+        {editingUser.role === "athlete" && (
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
+            <div>
+              <Label htmlFor="edit-total-funding" className="text-slate-300">
+                Total Funding ($)
+              </Label>
+              <Input
+                id="edit-total-funding"
+                type="number"
+                value={editingUser.totalFunding ?? ""}
+                onChange={(e) =>
+                  setEditingUser({
+                    ...editingUser,
+                    totalFunding: Number(e.target.value),
+                  })
+                }
+                className="bg-slate-800 border-slate-700 text-white"
+              />
+            </div>
+
+            <div>
+              <Label
+                htmlFor="edit-investment-duration"
+                className="text-slate-300"
+              >
+                Investment Duration (Years)
+              </Label>
+              <Input
+                id="edit-investment-duration"
+                type="number"
+                value={editingUser.investmentDuration ?? ""}
+                onChange={(e) =>
+                  setEditingUser({
+                    ...editingUser,
+                    investmentDuration: Number(e.target.value),
+                  })
+                }
+                className="bg-slate-800 border-slate-700 text-white"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-min-investment" className="text-slate-300">
+                Minimum Investment ($)
+              </Label>
+              <Input
+                id="edit-min-investment"
+                type="number"
+                value={editingUser.minInvestment ?? ""}
+                onChange={(e) =>
+                  setEditingUser({
+                    ...editingUser,
+                    minInvestment: Number(e.target.value),
+                  })
+                }
+                className="bg-slate-800 border-slate-700 text-white"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => setEditUserDialog(false)}
+            className="border-slate-700 text-slate-300 bg-transparent"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveUser}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Save Changes
+          </Button>
+        </div>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
+
 
         {/* View Approval Dialog */}
         <Dialog open={viewApprovalDialog} onOpenChange={setViewApprovalDialog}>
@@ -1601,17 +1874,6 @@ export default function AdminDashboard() {
                   >
                     Close
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="border-red-600 text-red-400 hover:bg-red-600 hover:text-white bg-transparent"
-                  >
-                    <UserX className="h-4 w-4 mr-2" />
-                    Reject
-                  </Button>
-                  <Button className="bg-green-600 hover:bg-green-700">
-                    <UserCheck className="h-4 w-4 mr-2" />
-                    Approve
-                  </Button>
                 </div>
               </div>
             )}
@@ -1642,9 +1904,7 @@ export default function AdminDashboard() {
                   </div>
                   <div>
                     <Label className="text-slate-300">Amount</Label>
-                    <div className="text-white text-xl font-bold">
-                      ${selectedPurchaseDetails.amount.toLocaleString()}
-                    </div>
+                    <div className="text-white text-xl font-bold">${selectedPurchaseDetails.amount.toLocaleString()}</div>
                   </div>
                   <div>
                     <Label className="text-slate-300">Category</Label>
@@ -1686,9 +1946,7 @@ export default function AdminDashboard() {
                     <div className="bg-slate-800 p-3 rounded-lg mt-2">
                       <p className="text-slate-300">{selectedPurchaseDetails.adminNotes}</p>
                       {selectedPurchaseDetails.reviewedDate && (
-                        <p className="text-slate-400 text-sm mt-2">
-                          Reviewed on: {selectedPurchaseDetails.reviewedDate}
-                        </p>
+                        <p className="text-slate-400 text-sm mt-2">Reviewed on: {selectedPurchaseDetails.reviewedDate}</p>
                       )}
                     </div>
                   </div>
@@ -1727,7 +1985,7 @@ export default function AdminDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Smart Contracts Dialog */}
+        {/* Smart Contracts Dialog (demo data) */}
         <Dialog open={contractsDialog} onOpenChange={setContractsDialog}>
           <DialogContent className="bg-slate-900 border-slate-800 max-w-4xl">
             <DialogHeader>
@@ -1749,30 +2007,9 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {[
-                      {
-                        id: "0x1a2b3c",
-                        athlete: "John Doe",
-                        investor: "Jane Smith",
-                        amount: "$5,000",
-                        status: "Active",
-                        created: "2024-01-15",
-                      },
-                      {
-                        id: "0x4d5e6f",
-                        athlete: "Mike Johnson",
-                        investor: "Bob Wilson",
-                        amount: "$10,000",
-                        status: "Active",
-                        created: "2024-01-18",
-                      },
-                      {
-                        id: "0x7g8h9i",
-                        athlete: "Sarah Davis",
-                        investor: "Alice Brown",
-                        amount: "$7,500",
-                        status: "Completed",
-                        created: "2024-01-20",
-                      },
+                      { id: "0x1a2b3c", athlete: "John Doe", investor: "Jane Smith", amount: "$5,000", status: "Active", created: "2024-01-15" },
+                      { id: "0x4d5e6f", athlete: "Mike Johnson", investor: "Bob Wilson", amount: "$10,000", status: "Active", created: "2024-01-18" },
+                      { id: "0x7g8h9i", athlete: "Sarah Davis", investor: "Alice Brown", amount: "$7,500", status: "Completed", created: "2024-01-20" },
                     ].map((contract) => (
                       <TableRow key={contract.id} className="border-slate-800">
                         <TableCell className="text-white font-mono">{contract.id}</TableCell>
@@ -1794,11 +2031,7 @@ export default function AdminDashboard() {
                 </Table>
               </div>
               <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setContractsDialog(false)}
-                  className="border-slate-700 text-slate-300 bg-transparent"
-                >
+                <Button variant="outline" onClick={() => setContractsDialog(false)} className="border-slate-700 text-slate-300 bg-transparent">
                   Close
                 </Button>
               </div>
@@ -1806,7 +2039,7 @@ export default function AdminDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Payments Dialog */}
+        {/* Payments Dialog (demo data) */}
         <Dialog open={paymentsDialog} onOpenChange={setPaymentsDialog}>
           <DialogContent className="bg-slate-900 border-slate-800 max-w-4xl">
             <DialogHeader>
@@ -1842,38 +2075,10 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {[
-                      {
-                        id: "TXN001",
-                        from: "Jane Smith",
-                        to: "John Doe",
-                        amount: "$5,000",
-                        status: "Completed",
-                        date: "2024-01-15",
-                      },
-                      {
-                        id: "TXN002",
-                        from: "Bob Wilson",
-                        to: "Mike Johnson",
-                        amount: "$10,000",
-                        status: "Pending",
-                        date: "2024-01-18",
-                      },
-                      {
-                        id: "TXN003",
-                        from: "Alice Brown",
-                        to: "Sarah Davis",
-                        amount: "$7,500",
-                        status: "Completed",
-                        date: "2024-01-20",
-                      },
-                      {
-                        id: "TXN004",
-                        from: "Tom Anderson",
-                        to: "Lisa Wang",
-                        amount: "$3,200",
-                        status: "Failed",
-                        date: "2024-01-22",
-                      },
+                      { id: "TXN001", from: "Jane Smith", to: "John Doe", amount: "$5,000", status: "Completed", date: "2024-01-15" },
+                      { id: "TXN002", from: "Bob Wilson", to: "Mike Johnson", amount: "$10,000", status: "Pending", date: "2024-01-18" },
+                      { id: "TXN003", from: "Alice Brown", to: "Sarah Davis", amount: "$7,500", status: "Completed", date: "2024-01-20" },
+                      { id: "TXN004", from: "Tom Anderson", to: "Lisa Wang", amount: "$3,200", status: "Failed", date: "2024-01-22" },
                     ].map((payment) => (
                       <TableRow key={payment.id} className="border-slate-800">
                         <TableCell className="text-white font-mono">{payment.id}</TableCell>
@@ -1887,8 +2092,8 @@ export default function AdminDashboard() {
                               payment.status === "Completed"
                                 ? "bg-green-600"
                                 : payment.status === "Pending"
-                                  ? "bg-amber-600"
-                                  : "bg-red-600"
+                                ? "bg-amber-600"
+                                : "bg-red-600"
                             }
                           >
                             {payment.status}
@@ -1901,11 +2106,7 @@ export default function AdminDashboard() {
                 </Table>
               </div>
               <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setPaymentsDialog(false)}
-                  className="border-slate-700 text-slate-300 bg-transparent"
-                >
+                <Button variant="outline" onClick={() => setPaymentsDialog(false)} className="border-slate-700 text-slate-300 bg-transparent">
                   Close
                 </Button>
               </div>
@@ -1914,5 +2115,5 @@ export default function AdminDashboard() {
         </Dialog>
       </div>
     </div>
-  )
+  );
 }

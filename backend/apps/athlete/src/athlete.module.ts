@@ -22,6 +22,13 @@ import { AthleteFollowersRepository } from './athlete_followers.repository';
 import { FundingGoalRepository } from './funding_goal.repository';
 import { CareerGoalsModule } from './career_goals/career_goals.module';
 import { PurchaseRequestModule } from './purchase_request/purchase_request.module';
+import { SeasonStatsModule } from './season_stats/season_stats.module';
+import { InvestmentPitch } from './models/investment_pitch.entity';
+import { InvestmentPitchRepository } from './investment_pitch.repository';
+import { InvestorAthleteFollowRepository } from './investor_athlete_follow.repository';
+import { InvestorAthleteFollow } from './models/investor_athlete_follows.entity';
+import { AthleteUpdate } from './models/athlete_updates.entity';
+import { AthleteUpdateRepository } from './athlete_updates.repository';
 
 @Module({
   imports: [
@@ -52,7 +59,7 @@ import { PurchaseRequestModule } from './purchase_request/purchase_request.modul
     }),
     LoggerModule,
     FileUtilsModule,
-    TypeOrmModule.forFeature([Athlete, Coach, FundingGoal, AthleteFollowers]),
+    TypeOrmModule.forFeature([Athlete, Coach, FundingGoal, AthleteFollowers, InvestmentPitch, InvestorAthleteFollow, AthleteUpdate]),
     DatabaseModule,
     ClientsModule.registerAsync([
       {
@@ -69,9 +76,10 @@ import { PurchaseRequestModule } from './purchase_request/purchase_request.modul
     ]),
     CareerGoalsModule,
     PurchaseRequestModule,
+    SeasonStatsModule,
   ],
   controllers: [AthleteController, AthleteMessageHandler],
-  providers: [AthleteService, AthleteRepository, CoachRepository, AthleteFollowersRepository, FundingGoalRepository],
-  exports: [AthleteRepository],
+  providers: [AthleteService, AthleteRepository, CoachRepository, AthleteFollowersRepository, FundingGoalRepository, InvestmentPitchRepository, InvestorAthleteFollowRepository, AthleteUpdateRepository],
+  exports: [AthleteRepository, AthleteUpdateRepository],
 })
 export class AthleteModule {}

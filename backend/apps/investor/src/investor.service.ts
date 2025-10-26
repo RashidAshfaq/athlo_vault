@@ -1,11 +1,17 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InvestorRepository } from './investor.repository';
 import { Investor } from './models/investor.entity';
-import { AUTH_SERVICE, CustomLogger, formatProfile } from '@app/common';
+import {
+  ATHLETE_SERVICE,
+  AUTH_SERVICE,
+  CustomLogger,
+  formatProfile,
+} from '@app/common';
 import { UpdateInvestorProfileDto } from './dtos/investor.dto';
 import { ClientProxy } from '@nestjs/microservices';
 import { lastValueFrom } from 'rxjs';
 import { Response } from '@app/common';
+import { GetAthletesFilterDto } from './dtos/athlete.filter.dto';
 
 @Injectable()
 export class InvestorService {
@@ -14,6 +20,8 @@ export class InvestorService {
     private readonly logger: CustomLogger,
     @Inject(AUTH_SERVICE)
     private readonly authServiceClient: ClientProxy,
+    @Inject(ATHLETE_SERVICE)
+    private readonly athleteServiceClient: ClientProxy,
   ) {}
 
   async createNewInvestor(savedUser: any): Promise<Investor> {
@@ -78,5 +86,25 @@ export class InvestorService {
       location,
       name,
     );
+  }
+
+
+  async fetchAthletes(filters: GetAthletesFilterDto) {
+   const athletes: Response = await lastValueFrom(
+      this.athleteServiceClient.send('get_athletes_for_investor', filters),
+    );
+    if (!athletes.success) throw new Error(athletes.message);
+
+    return athletes.data;
+  } 
+
+  async followOrUnfollowAthlete(investorId: number, dto: GetAthletesFilterDto) {
+    const payload = { investorId, athleteId: dto?.athleteId,action: dto?.action };
+
+    const result: Response = await lastValueFrom(
+      this.athleteServiceClient.send('investor_follow_athlete', payload),
+    );
+    if (!result.success) throw new Error(result.message);
+    return result;
   }
 }

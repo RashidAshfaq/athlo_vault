@@ -54,4 +54,29 @@ export class UserDTO {
   @Min(1)
   @IsOptional()
   userId: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Max(50000000)
+  @Min(6)
+  @IsOptional()
+  total_funding: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Max(50000000)
+  @Min(3)
+  @IsOptional()
+  min_investment: number;
+
+  @IsString()
+  @IsOptional()
+  investment_duration: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Max(100)
+  @Min(1)
+  @IsOptional()
+  investment_days: number;
 }

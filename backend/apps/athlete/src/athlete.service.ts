@@ -16,6 +16,11 @@ import { FundingGoalRepository } from './funding_goal.repository';
 import { ClientProxy } from '@nestjs/microservices';
 import { lastValueFrom } from 'rxjs';
 import { PurchaseRequestService } from './purchase_request/purchase_request.service';
+import { GetAthletesFilterDto } from 'apps/investor/src/dtos/athlete.filter.dto';
+import { InvestmentPitch } from './models/investment_pitch.entity';
+import { InvestmentPitchRepository } from './investment_pitch.repository';
+import { InvestorAthleteFollowRepository } from './investor_athlete_follow.repository';
+import { AthleteFollowers } from './models/athlete_followers.entity';
 
 @Injectable()
 export class AthleteService {
@@ -26,6 +31,8 @@ export class AthleteService {
     private readonly followersRepo: AthleteFollowersRepository,
     private readonly fundingGoalRepo: FundingGoalRepository,
     private readonly requestService: PurchaseRequestService,
+    private readonly investmentPitchRepo: InvestmentPitchRepository,
+    private readonly followRepo: InvestorAthleteFollowRepository,
     @Inject(AUTH_SERVICE)
     private readonly authServiceClient: ClientProxy,
   ) {}
@@ -101,17 +108,19 @@ export class AthleteService {
     }
 
     if (dto.socialMedia) {
-      if (athlete?.socialMedia && athlete?.socialMedia?.id) {
-        const followers = await this.followersRepo.findOne({
-          id: athlete.socialMedia.id,
-        });
-        Object.assign(followers, dto.socialMedia);
-        await this.followersRepo.update(followers);
-        athlete.socialMedia = followers;
-      } else {
-        const followers = await this.followersRepo.create(dto.socialMedia);
-        athlete.socialMedia = followers;
-      }
+      // if (athlete?.socialMedia && athlete?.socialMedia?.id) {
+      //   const followers = await this.followersRepo.findOne({
+      //     id: athlete.socialMedia.id,
+      //   });
+      //   Object.assign(followers, dto.socialMedia);
+      //   await this.followersRepo.update(followers);
+      //   athlete.socialMedia = followers;
+      // } else {
+      const followers = await this.followersRepo.create(dto.socialMedia);
+      followers.athletes = athlete;
+      await followers.save();
+      athlete.socialMedia = followers;
+      // }
     }
 
     if (dto.fundingGoal) {
@@ -188,12 +197,12 @@ export class AthleteService {
     const basicInfoChecks = [
       !!athlete.fullName,
       !!athlete.phone,
-      !!athlete.user?.email,
+      !!athlete?.email,
       !!athlete.dob,
-      !!athlete.user?.city,
-      !!athlete.user?.state,
-      !!athlete.user?.country,
-      !!athlete.user?.zip,
+      !!athlete?.city,
+      !!athlete?.state,
+      !!athlete?.country,
+      !!athlete?.zip,
     ];
     const basicInfo = basicInfoChecks.every(Boolean);
 
@@ -209,6 +218,9 @@ export class AthleteService {
       athlete.weight != null,
       !!athlete.biography,
       !!athlete.about,
+      athlete.total_funding != null,
+      athlete.min_investment != null,
+      !!athlete.investment_duration,
     ];
     const athleticDetails = athleticDetailsChecks.every(Boolean);
 
@@ -232,8 +244,23 @@ export class AthleteService {
     ];
     const mediaUpload = mediaChecks.every(Boolean);
 
+    // --- Current Season Stats ---
+    const currentSeasonStats = athlete.currentSeasonStats;
+    const seasonStatsCheck = !!currentSeasonStats;
+
+    // --- Investment Pitches ---
+    const investmentPitches = athlete.investmentPitches ?? [];
+    const investmentPitchCheck = investmentPitches.length > 0;
+
     // Profile completion logic
-    const checks = [basicInfo, athleticDetails, coachInformation, mediaUpload];
+    const checks = [
+      basicInfo,
+      athleticDetails,
+      coachInformation,
+      mediaUpload,
+      seasonStatsCheck,
+      investmentPitchCheck,
+    ];
     const completedSections = checks.filter(Boolean).length;
     const completionPercentage = Math.round(
       (completedSections / checks.length) * 100,
@@ -247,6 +274,8 @@ export class AthleteService {
         athleticDetails,
         coachInformation,
         mediaUpload,
+        seasonStats: seasonStatsCheck,
+        investmentPitch: investmentPitchCheck,
       },
     };
   }
@@ -264,12 +293,117 @@ export class AthleteService {
   }
 
   async updateUsingUserId(data: any) {
-    const { userId, phone, location, name } = data;
+    const {
+      userId,
+      phone,
+      location,
+      name,
+      investment_duration,
+      total_funding,
+      min_investment,
+      investment_days,
+    } = data;
     return await this.athleteRepo.updateUsingUserId(
       userId,
       phone,
       location,
       name,
+      investment_duration,
+      total_funding,
+      min_investment,
+      investment_days,
     );
+  }
+
+  async getFilteredAthletes(filters: GetAthletesFilterDto) {
+    const { name, sport, sort_by, athleteId } = filters;
+    return await this.athleteRepo.getFilteredAthletes(
+      name,
+      sport,
+      sort_by,
+      athleteId,
+    );
+  }
+
+  async uploadInvestmentPitch(athleteId: number, file: Express.Multer.File) {
+    if (!file) throw new Error('File is required');
+
+    const pitch = await this.investmentPitchRepo.createPitch(
+      athleteId,
+      file.filename,
+    );
+
+    return {
+      message: 'Video uploaded successfully.',
+      data: pitch,
+    };
+  }
+
+  async handleInvestorFollow(
+    investorId: number,
+    athleteId: number,
+    action: 'follow' | 'unfollow',
+  ) {
+    // Fetch athlete along with current social media stats
+    const athlete =
+      await this.athleteRepo.findAndGetSocialMediaFollow(athleteId);
+    if (!athlete) throw new Error('Athlete not found');
+
+    // Determine previous counts or initialize with 1 1 1
+    const prevFollowers = athlete.socialMedia;
+    const prevTwitter = prevFollowers?.twitterFollowers ?? 0;
+    const prevInstagram = prevFollowers?.instagramFollowers ?? 0;
+    const prevLinked = prevFollowers?.linkedFollowers ?? 0;
+
+    // Prepare new followers data
+    let newFollowersData: Partial<AthleteFollowers> = {
+      twitterFollowers: prevTwitter,
+      instagramFollowers: prevInstagram,
+      linkedFollowers: prevLinked,
+      athletes: athlete,
+    };
+
+    // Update counts based on follow/unfollow
+    if (action === 'follow') {
+      newFollowersData.twitterFollowers += 1;
+      newFollowersData.instagramFollowers += 1;
+      newFollowersData.linkedFollowers += 1;
+    } else if (action === 'unfollow') {
+      newFollowersData.twitterFollowers = Math.max(prevTwitter - 1, 0);
+      newFollowersData.instagramFollowers = Math.max(prevInstagram - 1, 0);
+      newFollowersData.linkedFollowers = Math.max(prevLinked - 1, 0);
+    }
+
+    // Create a new followers row (always a new entry)
+    const newFollowers = await this.followersRepo.create(newFollowersData);
+
+    // Update athlete's current socialMediaId
+    athlete.socialMedia = newFollowers;
+    await this.athleteRepo.update(athlete);
+
+    // Update or create Investor-Athlete mapping
+    let existingFollow = await this.followRepo.findByInvestorAndAthlete(
+      investorId,
+      athleteId,
+    );
+
+    if (!existingFollow) {
+      // Investor never followed before
+      await this.followRepo.toggleFollow({
+        investor: { id: investorId } as any,
+        athlete,
+        status: action,
+      } as any);
+    } else {
+      existingFollow.status = action;
+      await this.followRepo.toggleFollow(existingFollow);
+    }
+
+    return {
+      athleteId,
+      investorId,
+      action,
+      followers: newFollowers,
+    };
   }
 }

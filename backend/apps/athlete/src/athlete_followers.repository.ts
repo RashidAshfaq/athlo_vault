@@ -18,4 +18,8 @@ export class AthleteFollowersRepository extends AbstractRepository<AthleteFollow
   async update(entity: AthleteFollowers): Promise<AthleteFollowers> {
     return this.followersRepository.save(entity);
   }
+
+   async save(entity: AthleteFollowers): Promise<AthleteFollowers> {
+    return this.followersRepository.save(entity);
+  }
 }

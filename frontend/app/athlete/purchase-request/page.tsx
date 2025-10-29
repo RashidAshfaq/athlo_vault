@@ -1,15 +1,33 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { AthleteLayout } from "@/components/athlete-layout"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState } from "react";
+import { AthleteLayout } from "@/components/athlete-layout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { submitPurchaseRequest } from "@/lib/purchase-requests"; // ✅ API integration
 import {
   ShoppingCart,
   DollarSign,
@@ -22,8 +40,24 @@ import {
   FileText,
   Calendar,
   User,
-} from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+} from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+
+// ✅ Shared request type
+interface Request {
+  id: string;
+  item: string;
+  category: string;
+  amount: number;
+  vendor: string;
+  status: string;
+  submittedDate: string;
+  reviewedDate: string | null;
+  description: string;
+  adminNotes: string | null;
+  urgency: string;
+  justification: string;
+}
 
 export default function AthletePurchaseRequest() {
   const [newRequest, setNewRequest] = useState({
@@ -34,9 +68,9 @@ export default function AthletePurchaseRequest() {
     description: "",
     urgency: "",
     justification: "",
-  })
+  });
 
-  const [requests, setRequests] = useState([
+  const [requests, setRequests] = useState<Request[]>([
     {
       id: "PR-001",
       item: "Professional Training Equipment",
@@ -46,10 +80,12 @@ export default function AthletePurchaseRequest() {
       status: "approved",
       submittedDate: "2024-04-10",
       reviewedDate: "2024-04-12",
-      description: "High-performance training equipment for strength and conditioning",
+      description:
+        "High-performance training equipment for strength and conditioning",
       adminNotes: "Approved - Essential for career development",
       urgency: "medium",
-      justification: "This equipment will help improve my performance metrics by 15-20%",
+      justification:
+        "This equipment will help improve my performance metrics by 15-20%",
     },
     {
       id: "PR-002",
@@ -63,7 +99,8 @@ export default function AthletePurchaseRequest() {
       description: "Monthly supply of approved sports nutrition supplements",
       adminNotes: null,
       urgency: "low",
-      justification: "Required for maintaining optimal nutrition during training season",
+      justification:
+        "Required for maintaining optimal nutrition during training season",
     },
     {
       id: "PR-003",
@@ -77,7 +114,8 @@ export default function AthletePurchaseRequest() {
       description: "Travel expenses for specialized training camp",
       adminNotes: "Rejected - Similar training available locally",
       urgency: "high",
-      justification: "This camp offers specialized training not available in my area",
+      justification:
+        "This camp offers specialized training not available in my area",
     },
     {
       id: "PR-004",
@@ -91,76 +129,97 @@ export default function AthletePurchaseRequest() {
       description: "6-month mental performance coaching program",
       adminNotes: null,
       urgency: "medium",
-      justification: "Mental coaching is crucial for peak performance in competitive sports",
+      justification:
+        "Mental coaching is crucial for peak performance in competitive sports",
     },
-  ])
+  ]);
 
   const handleInputChange = (field: string, value: string) => {
     setNewRequest((prev) => ({ ...prev, [field]: value }))
   }
-
-  const handleSubmitRequest = () => {
-    if (
-      !newRequest.category ||
-      !newRequest.item ||
-      !newRequest.amount ||
-      !newRequest.vendor ||
-      !newRequest.justification
-    ) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const request = {
-      id: `PR-${String(requests.length + 1).padStart(3, "0")}`,
-      item: newRequest.item,
-      category: newRequest.category,
-      amount: Number.parseFloat(newRequest.amount),
-      vendor: newRequest.vendor,
-      status: "pending",
-      submittedDate: new Date().toISOString().split("T")[0],
-      reviewedDate: null,
-      description: newRequest.description,
-      adminNotes: null,
-      urgency: newRequest.urgency,
-      justification: newRequest.justification,
-    }
-
-    // Add to local state
-    setRequests((prev) => [request, ...prev])
-
-    // Store in localStorage for admin to access
-    const existingAdminRequests = JSON.parse(localStorage.getItem("adminPurchaseRequests") || "[]")
-    const adminRequest = {
-      ...request,
-      athleteName: "Current Athlete", // In real app, this would come from user context
-      athleteId: "athlete-1",
-      type: "purchase_request",
-      submittedBy: "athlete",
-    }
-    existingAdminRequests.push(adminRequest)
-    localStorage.setItem("adminPurchaseRequests", JSON.stringify(existingAdminRequests))
-
-    // Reset form
-    setNewRequest({
-      category: "",
-      item: "",
-      amount: "",
-      vendor: "",
-      description: "",
-      urgency: "",
-      justification: "",
-    })
-
+const handleSubmitRequest = async () => {
+  if (
+    !newRequest.category ||
+    !newRequest.item ||
+    !newRequest.amount ||
+    !newRequest.vendor ||
+    !newRequest.justification ||
+    !newRequest.urgency
+  ) {
     toast({
-      title: "Request Submitted",
-      description: "Your purchase request has been sent to admin for review",
-    })
+      title: "Missing Information",
+      description: "Please fill in all required fields",
+      variant: "destructive",
+    });
+    return;
   }
+
+  try {
+    const payload = {
+      category: newRequest.category,
+      amount: Number(newRequest.amount),
+      itemServiceDescription: newRequest.item,
+      vendorProvider: newRequest.vendor,
+      careerDevelopmentJustification: newRequest.justification,
+      urgencyLevel: newRequest.urgency as
+        | "low"
+        | "medium"
+        | "high"
+        | "urgent",
+      detailDescription: newRequest.description,
+    };
+
+    // optional: fetch token from localStorage if your API requires auth
+    const token = JSON.parse(localStorage.getItem("user") || "{}")?.access_token;
+
+    const res = await submitPurchaseRequest(payload, token);
+if (res.success) {
+  const request: Request = {
+    id: String(res.data.id),
+    item: res.data.itemServiceDescription,
+    category: res.data.category,
+    amount: res.data.amount,
+    vendor: res.data.vendorProvider,
+    status: res.data.requestStatus,
+    submittedDate: res.data.submitDate,
+    reviewedDate: res.data.reviewedOn ?? null,       // ensure string|null
+    description: res.data.detailDescription ?? "",   // ensure string
+    adminNotes: res.data.admin_note ?? null,         // ensure string|null
+    urgency: res.data.urgencyLevel,
+    justification: res.data.careerDevelopmentJustification ?? "",
+  };
+
+  setRequests((prev) => [request, ...prev]);
+
+  setNewRequest({
+    category: "",
+    item: "",
+    amount: "",
+    vendor: "",
+    description: "",
+    urgency: "",
+    justification: "",
+  });
+
+  toast({
+    title: "✅ Request Submitted",
+    description: res.message || "Your purchase request has been sent",
+  });
+    } else {
+      toast({
+        title: "Submission Failed",
+        description: res.message || "Could not submit purchase request",
+        variant: "destructive",
+      });
+    }
+  } catch (e: any) {
+    toast({
+      title: "Error",
+      description: e?.message || "Something went wrong",
+      variant: "destructive",
+    });
+  }
+};
 
   const getStatusBadge = (status: string) => {
     switch (status) {

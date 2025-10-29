@@ -20,6 +20,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Target, Plus, Edit, Trash2, Calendar, Star, CheckCircle, Clock } from "lucide-react"
+import { createCareerGoal } from "@/lib/create-goal-api"
+import { toast } from "sonner"
 
 interface CareerGoal {
   id: string
@@ -97,23 +99,44 @@ export default function AthleteGoals() {
     milestones: [""],
   })
 
-  const handleAddGoal = () => {
-    if (!newGoal.title.trim()) return
+  const handleAddGoal = async () => {
+  if (!newGoal.title.trim()) return;
 
-    const goal: CareerGoal = {
-      id: Date.now().toString(),
-      title: newGoal.title,
-      description: newGoal.description,
-      category: newGoal.category,
-      priority: newGoal.priority,
-      progress: 0,
-      targetDate: newGoal.targetDate,
-      status: "Not Started",
-      createdDate: new Date().toISOString().split("T")[0],
-      milestones: newGoal.milestones.filter((m) => m.trim()),
-    }
+  try {
 
-    setGoals([...goals, goal])
+    const payload = {
+  goalTitle: newGoal.title,
+  description: newGoal.description,
+  category: newGoal.category,
+  priority: newGoal.priority,
+  targetDate: newGoal.targetDate,
+  milestones: (newGoal.milestones || [])
+    .filter((m) => m.trim())
+    .map((m) => ({ name: m })),
+};
+
+const res = await createCareerGoal(payload, localStorage.getItem("access_token") || "");
+const response = res.data;
+
+console.log("response is " + response.description);
+
+const newCareerGoal: CareerGoal = {
+  id: Date.now().toString(),
+  title: response.goalTitle,
+  description: response.description,
+  category: response.category as CareerGoal["category"],
+  priority: response.priority as CareerGoal["priority"],
+  targetDate: response.targetDate,
+  progress: 0,
+  status: "Not Started",
+  createdDate: new Date().toISOString().split("T")[0],
+  milestones: response.milestones?.map((m) => m.name) || [],
+};
+
+
+    setGoals((prev) => [...prev, newCareerGoal]);
+
+    // Reset the form
     setNewGoal({
       title: "",
       description: "",
@@ -121,9 +144,23 @@ export default function AthleteGoals() {
       priority: "Medium",
       targetDate: "",
       milestones: [""],
-    })
-    setIsAddingGoal(false)
+    });
+
+    setIsAddingGoal(false);
+    console.log("Goals  Added:", response)
+
+    toast("Created new Goals", {
+  description: "Your goals were added successfully."
+})
+  } catch (error: any) {
+    console.error("Creating new goals failed: ", error.message)
+   
+    toast("Goals Added", {
+  description: error.message || "An error occurred while adding new goals."
+})
   }
+};
+
 
   const handleEditGoal = (goal: CareerGoal) => {
     setEditingGoal(goal)

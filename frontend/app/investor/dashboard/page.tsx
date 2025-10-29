@@ -137,6 +137,13 @@ export default function InvestorDashboard() {
                 Find Athletes
               </Button>
             </Link>
+            <Link href="/investor/profile">
+  <Button variant="outline" className="border-slate-700 text-slate-300 bg-transparent">
+    <Eye className="h-4 w-4 mr-2" />
+    View Profile
+  </Button>
+</Link>
+
             <Link href="/investor/profile/edit">
               <Button variant="outline" className="border-slate-700 text-slate-300 bg-transparent">
                 <Settings className="h-4 w-4 mr-2" />

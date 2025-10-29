@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { User, Trophy, DollarSign, FileText, CheckCircle, ArrowRight, ArrowLeft, Upload } from "lucide-react"
+import { createAthleteProfile } from "@/lib/createAthleteProfileApi"
 
 interface OnboardingData {
   firstName: string
@@ -25,6 +26,64 @@ export default function AthleteOnboardingPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  const [formData, setFormData] = useState<any>({
+    phone: "",
+    dob: "",
+    location: "",
+    primarySport: "",
+    positionOrSpeciality: "",
+    organizationName: "",
+    yearOfExperience: "",
+    keyAchievements: "",
+    currentPerformance: "",
+    felonyConviction: false,
+    felonyDescription: "",
+    height: "",
+    weight: "",
+    biography: "",
+    about: "",
+    coach: {
+      name: "",
+      email: "",
+      phone: "",
+      yearOfWorkTogether: "",
+      achievementAndBackground: "",
+    },
+    socialMedia: {
+      twitterFollowers: "",
+      instagramFollowers: "",
+      linkedFollowers: "",
+      personalWebsiteUrl: "",
+    },
+    fundingGoal: {
+      fundUses: "",
+      revenueSharePercentage: "",
+      currentGoalsTimelines: "",
+    },
+    profilePicture: undefined as File | undefined,
+    coverPhoto: undefined as File | undefined,
+    governmentId: undefined as File | undefined,
+    proofOfAthleteStatus: undefined as File | undefined,
+    agreeTerms: false,
+  })
+
+  const [preview, setPreview] = useState<any>({
+    profilePicture: "",
+    coverPhoto: "",
+    governmentId: "",
+    proofOfAthleteStatus: "",
+  })
+
+  // hidden file inputs (for design parity)
+  const profileInputRef = useRef<HTMLInputElement | null>(null)
+  const govIdInputRef = useRef<HTMLInputElement | null>(null)
+  const proofInputRef = useRef<HTMLInputElement | null>(null)
+  const coverInputRef = useRef<HTMLInputElement | null>(null)
+
 
   useEffect(() => {
     const userData = localStorage.getItem("user")
@@ -32,14 +91,11 @@ export default function AthleteOnboardingPage() {
       router.push("/auth/signin")
       return
     }
-
     const parsedUser = JSON.parse(userData)
     if (parsedUser.userType !== "athlete") {
       router.push("/auth/signin")
       return
     }
-
-    // Get onboarding data passed from signup
     if (parsedUser.onboardingData) {
       setOnboardingData(parsedUser.onboardingData)
     }
@@ -55,29 +111,96 @@ export default function AthleteOnboardingPage() {
 
   const progress = (currentStep / steps.length) * 100
 
-  const nextStep = () => {
-    if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1)
+  const handleChange = (field: string, value: any) => {
+    setFormData((prev: any) => ({ ...prev, [field]: value }))
+    setFieldErrors((prev) => ({ ...prev, [field]: "" }))
+  }
+
+  const handleNestedChange = (section: string, field: string, value: any) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      [section]: { ...prev[section], [field]: value },
+    }))
+    setFieldErrors((prev) => ({ ...prev, [`${section}.${field}`]: "" }))
+  }
+
+  const handleFileChange = (field: string, file: File | undefined) => {
+    setFormData((prev: any) => ({ ...prev, [field]: file }))
+    if (file) {
+      const url = URL.createObjectURL(file)
+      setPreview((prev: any) => ({ ...prev, [field]: url }))
+      setFieldErrors((prev) => ({ ...prev, [field]: "" }))
+    }
+  }
+
+  const validateStep = () => {
+    const errors: Record<string, string> = {}
+    if (currentStep === 1) {
+      if (!formData.phone) errors.phone = "Phone is required"
+      if (!formData.dob) errors.dob = "Date of birth is required"
+      if (!formData.location) errors.location = "Location is required"
+      if (!formData.profilePicture) errors.profilePicture = "Profile picture is required"
+    }
+    if (currentStep === 2) {
+      if (!formData.primarySport) errors.primarySport = "Primary sport is required"
+      if (!formData.positionOrSpeciality) errors.positionOrSpeciality = "Position is required"
+    }
+    if (currentStep === 3) {
+      if (!formData.fundingGoal.fundUses) errors["fundingGoal.fundUses"] = "Funding use is required"
+      if (!formData.fundingGoal.revenueSharePercentage) errors["fundingGoal.revenueSharePercentage"] = "Revenue share is required"
+    }
+    if (currentStep === 4) {
+      if (!formData.governmentId) errors.governmentId = "Government ID is required"
+      if (!formData.proofOfAthleteStatus) errors.proofOfAthleteStatus = "Proof of athlete status is required"
+      if (!formData.agreeTerms) errors.agreeTerms = "You must agree to the Terms of Service"
+    }
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleSubmit = async () => {
+    if (!onboardingData) return
+    setLoading(true)
+    setError(null)
+    try {
+       const payload = {
+      ...formData,
+      yearOfExperience: String(formData.yearOfExperience ?? ""),
+      coach: {
+        ...formData.coach,
+        yearOfWorkTogether: String(formData.coach.yearOfWorkTogether ?? ""),
+      },
+      fullName: `${onboardingData.firstName} ${onboardingData.lastName}`,
+    };
+
+    console.log("📤 Sending Athlete Profile Payload:", payload);
+    console.log("➡ yearOfExperience:", payload.yearOfExperience);
+      await createAthleteProfile(payload)
+      setCurrentStep(5)
+      const userData = localStorage.getItem("user")
+      if (userData) {
+        const parsedUser = JSON.parse(userData)
+        delete parsedUser.onboardingData
+        localStorage.setItem("user", JSON.stringify(parsedUser))
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to create profile")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const nextStep = async () => {
+    if (!validateStep()) return
+    if (currentStep === 4) {
+      await handleSubmit()
+    } else {
+      setCurrentStep((s) => s + 1)
     }
   }
 
   const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
-  }
-
-  const completeOnboarding = () => {
-    // Update user data to remove onboarding flag
-    const userData = localStorage.getItem("user")
-    if (userData) {
-      const parsedUser = JSON.parse(userData)
-      delete parsedUser.onboardingData
-      localStorage.setItem("user", JSON.stringify(parsedUser))
-    }
-
-    // Redirect to athlete dashboard
-    router.push("/athlete/dashboard")
+    if (currentStep > 1) setCurrentStep((s) => s - 1)
   }
 
   const StepIcon = steps[currentStep - 1].icon
@@ -121,6 +244,13 @@ export default function AthleteOnboardingPage() {
             <Progress value={progress} className="h-2" />
           </div>
 
+          {/* Error */}
+          {error && (
+            <div className="mb-4 text-red-400 bg-red-400/10 border border-red-700 rounded-md px-4 py-2">
+              {error}
+            </div>
+          )}
+
           {/* Step Content */}
           <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader>
@@ -136,54 +266,105 @@ export default function AthleteOnboardingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">First Name</label>
-                      <Input
-                        className="bg-slate-900 border-slate-700 text-white"
-                        value={onboardingData.firstName}
-                        readOnly
-                      />
+                      <Input className="bg-slate-900 border-slate-700 text-white" value={onboardingData.firstName} readOnly />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Last Name</label>
-                      <Input
-                        className="bg-slate-900 border-slate-700 text-white"
-                        value={onboardingData.lastName}
-                        readOnly
-                      />
+                      <Input className="bg-slate-900 border-slate-700 text-white" value={onboardingData.lastName} readOnly />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Email Address</label>
-                    <Input
-                      type="email"
-                      className="bg-slate-900 border-slate-700 text-white"
-                      value={onboardingData.email}
-                      readOnly
-                    />
+                    <Input type="email" className="bg-slate-900 border-slate-700 text-white" value={onboardingData.email} readOnly />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Phone Number</label>
-                      <Input className="bg-slate-900 border-slate-700 text-white" placeholder="+1 (555) 123-4567" />
+                      <Input
+                        className="bg-slate-900 border-slate-700 text-white"
+                        placeholder="+1 (555) 123-4567"
+                        value={formData.phone}
+                        onChange={(e) => handleChange("phone", e.target.value)}
+                      />
+                      {fieldErrors.phone && <p className="text-red-400 text-xs mt-1">{fieldErrors.phone}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Date of Birth</label>
-                      <Input type="date" className="bg-slate-900 border-slate-700 text-white" />
+                      <Input
+                        type="date"
+                        className="bg-slate-900 border-slate-700 text-white"
+                        value={formData.dob}
+                        onChange={(e) => handleChange("dob", e.target.value)}
+                      />
+                      {fieldErrors.dob && <p className="text-red-400 text-xs mt-1">{fieldErrors.dob}</p>}
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Location</label>
-                    <Input className="bg-slate-900 border-slate-700 text-white" placeholder="City, State, Country" />
+                    <Input
+                      className="bg-slate-900 border-slate-700 text-white"
+                      placeholder="City, State, Country"
+                      value={formData.location}
+                      onChange={(e) => handleChange("location", e.target.value)}
+                    />
+                    {fieldErrors.location && <p className="text-red-400 text-xs mt-1">{fieldErrors.location}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Profile Photo</label>
                     <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center">
                       <Upload className="h-8 w-8 mx-auto text-slate-400 mb-2" />
                       <p className="text-slate-400 text-sm">Upload a professional headshot</p>
-                      <Button variant="outline" className="border-slate-600 text-slate-300 bg-transparent mt-2">
+                      <input
+                        ref={profileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleFileChange("profilePicture", e.target.files?.[0])}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-slate-600 text-slate-300 bg-transparent mt-2"
+                        onClick={() => profileInputRef.current?.click()}
+                      >
                         Choose Photo
                       </Button>
+                      {formData.profilePicture && (
+                        <p className="text-slate-400 text-xs mt-2 truncate">
+                          Selected: {(formData.profilePicture as File)?.name}
+                        </p>
+                      )}
+                      {fieldErrors.profilePicture && <p className="text-red-400 text-xs mt-2">{fieldErrors.profilePicture}</p>}
                     </div>
                   </div>
+                  <div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">Cover Photo (Optional)</label>
+  <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center">
+    <Upload className="h-8 w-8 mx-auto text-slate-400 mb-2" />
+    <p className="text-slate-400 text-sm">Upload a cover image for your profile page</p>
+    <input
+      ref={coverInputRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      onChange={(e) => handleFileChange("coverPhoto", e.target.files?.[0])}
+    />
+    <Button
+      type="button"
+      variant="outline"
+      className="border-slate-600 text-slate-300 bg-transparent mt-2"
+      onClick={() => coverInputRef.current?.click()}
+    >
+      Choose Cover Photo
+    </Button>
+    {formData.coverPhoto && (
+      <p className="text-slate-400 text-xs mt-2 truncate">
+        Selected: {(formData.coverPhoto as File)?.name}
+      </p>
+    )}
+  </div>
+</div>
+
                 </div>
               )}
 
@@ -193,7 +374,7 @@ export default function AthleteOnboardingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Primary Sport</label>
-                      <Select>
+                      <Select value={formData.primarySport} onValueChange={(v) => handleChange("primarySport", v)}>
                         <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                           <SelectValue placeholder="Select your sport" />
                         </SelectTrigger>
@@ -208,13 +389,17 @@ export default function AthleteOnboardingPage() {
                           <SelectItem value="track-field">Track & Field</SelectItem>
                         </SelectContent>
                       </Select>
+                      {fieldErrors.primarySport && <p className="text-red-400 text-xs mt-1">{fieldErrors.primarySport}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Position/Specialty</label>
                       <Input
                         className="bg-slate-900 border-slate-700 text-white"
                         placeholder="e.g., Point Guard, Quarterback"
+                        value={formData.positionOrSpeciality}
+                        onChange={(e) => handleChange("positionOrSpeciality", e.target.value)}
                       />
+                      {fieldErrors.positionOrSpeciality && <p className="text-red-400 text-xs mt-1">{fieldErrors.positionOrSpeciality}</p>}
                     </div>
                   </div>
 
@@ -223,6 +408,8 @@ export default function AthleteOnboardingPage() {
                     <Input
                       className="bg-slate-900 border-slate-700 text-white"
                       placeholder="e.g., University of California"
+                      value={formData.organizationName}
+                      onChange={(e) => handleChange("organizationName", e.target.value)}
                     />
                   </div>
 
@@ -231,7 +418,12 @@ export default function AthleteOnboardingPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">Coach Name</label>
-                        <Input className="bg-slate-900 border-slate-700 text-white" placeholder="Coach Name" />
+                        <Input
+                          className="bg-slate-900 border-slate-700 text-white"
+                          placeholder="Coach Name"
+                          value={formData.coach.name}
+                          onChange={(e) => handleNestedChange("coach", "name", e.target.value)}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">Coach Email</label>
@@ -239,17 +431,30 @@ export default function AthleteOnboardingPage() {
                           type="email"
                           className="bg-slate-900 border-slate-700 text-white"
                           placeholder="Coach Email"
+                          value={formData.coach.email}
+                          onChange={(e) => handleNestedChange("coach", "email", e.target.value)}
                         />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">Coach Phone</label>
-                        <Input className="bg-slate-900 border-slate-700 text-white" placeholder="+1 (555) 123-4567" />
+                        <Input
+                          className="bg-slate-900 border-slate-700 text-white"
+                          placeholder="+1 (555) 123-4567"
+                          value={formData.coach.phone}
+                          onChange={(e) => handleNestedChange("coach", "phone", e.target.value)}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">Years Working Together</label>
-                        <Input type="number" className="bg-slate-900 border-slate-700 text-white" placeholder="Years" />
+                        <Input
+                          type="number"
+                          className="bg-slate-900 border-slate-700 text-white"
+                          placeholder="Years"
+                          value={formData.coach.yearOfWorkTogether}
+                          onChange={(e) => handleNestedChange("coach", "yearOfWorkTogether", e.target.value)}
+                        />
                       </div>
                     </div>
                     <div>
@@ -259,30 +464,38 @@ export default function AthleteOnboardingPage() {
                       <Textarea
                         className="bg-slate-900 border-slate-700 text-white min-h-24"
                         placeholder="Coach Achievements & Background"
+                        value={formData.coach.achievementAndBackground}
+                        onChange={(e) => handleNestedChange("coach", "achievementAndBackground", e.target.value)}
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Years of Experience</label>
-                    <Select>
-                      <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
-                        <SelectValue placeholder="Select experience level" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
-                        <SelectItem value="1-3">1-3 years</SelectItem>
-                        <SelectItem value="4-6">4-6 years</SelectItem>
-                        <SelectItem value="7-10">7-10 years</SelectItem>
-                        <SelectItem value="10+">10+ years</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">Years of Personal Experience</label>
+  <Input
+    type="number"
+    min={0}
+    step={1}
+    className="bg-slate-900 border-slate-700 text-white"
+    placeholder="Enter number of years"
+    value={formData.yearOfExperience ?? ""}
+    onChange={(e) => {
+      const v = e.target.value;
+      // allow empty while typing; otherwise store an integer >= 0
+      const parsed = v === "" ? "" : Math.max(0, parseInt(v, 10) || 0);
+      handleChange("yearOfExperience", parsed);
+    }}
+  />
+</div>
+
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Key Achievements</label>
                     <Textarea
                       className="bg-slate-900 border-slate-700 text-white min-h-24"
                       placeholder="List your major achievements, awards, records, etc."
+                      value={formData.keyAchievements}
+                      onChange={(e) => handleChange("keyAchievements", e.target.value)}
                     />
                   </div>
 
@@ -293,16 +506,102 @@ export default function AthleteOnboardingPage() {
                     <Textarea
                       className="bg-slate-900 border-slate-700 text-white min-h-24"
                       placeholder="Describe your current performance stats and achievements"
+                      value={formData.currentPerformance}
+                      onChange={(e) => handleChange("currentPerformance", e.target.value)}
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Social Media Following</label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input className="bg-slate-900 border-slate-700 text-white" placeholder="Instagram followers" />
-                      <Input className="bg-slate-900 border-slate-700 text-white" placeholder="Twitter followers" />
-                    </div>
-                  </div>
+                 <div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Social Media Following
+  </label>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <Input
+      type="number"
+      min={0}
+      step={1}
+      className="bg-slate-900 border-slate-700 text-white"
+      placeholder="Instagram followers"
+      value={formData.socialMedia.instagramFollowers ?? ""}
+      onChange={(e) => {
+        const v = e.target.value;
+        const parsed = v === "" ? "" : Math.max(0, parseInt(v, 10) || 0);
+        handleNestedChange("socialMedia", "instagramFollowers", parsed);
+      }}
+    />
+    <Input
+      type="number"
+      min={0}
+      step={1}
+      className="bg-slate-900 border-slate-700 text-white"
+      placeholder="Twitter followers"
+      value={formData.socialMedia.twitterFollowers ?? ""}
+      onChange={(e) => {
+        const v = e.target.value;
+        const parsed = v === "" ? "" : Math.max(0, parseInt(v, 10) || 0);
+        handleNestedChange("socialMedia", "twitterFollowers", parsed);
+      }}
+    />
+    <Input
+      type="number"
+      min={0}
+      step={1}
+      className="bg-slate-900 border-slate-700 text-white"
+      placeholder="LinkedIn followers"
+      value={formData.socialMedia.linkedFollowers ?? ""}
+      onChange={(e) => {
+        const v = e.target.value;
+        const parsed = v === "" ? "" : Math.max(0, parseInt(v, 10) || 0);
+        handleNestedChange("socialMedia", "linkedFollowers", parsed);
+      }}
+    />
+  </div>
+</div>
+
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-2">Height (cm)</label>
+    <Input
+      type="number"
+      min={0}
+      className="bg-slate-900 border-slate-700 text-white"
+      value={formData.height}
+      onChange={(e) => handleChange("height", e.target.value)}
+    />
+  </div>
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-2">Weight (kg)</label>
+    <Input
+      type="number"
+      min={0}
+      className="bg-slate-900 border-slate-700 text-white"
+      value={formData.weight}
+      onChange={(e) => handleChange("weight", e.target.value)}
+    />
+  </div>
+</div>
+
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">Biography</label>
+  <Textarea
+    className="bg-slate-900 border-slate-700 text-white min-h-24"
+    placeholder="Tell us about yourself"
+    value={formData.biography}
+    onChange={(e) => handleChange("biography", e.target.value)}
+  />
+</div>
+
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">About</label>
+  <Textarea
+    className="bg-slate-900 border-slate-700 text-white min-h-24"
+    placeholder="Additional details about your journey"
+    value={formData.about}
+    onChange={(e) => handleChange("about", e.target.value)}
+  />
+</div>
+
                 </div>
               )}
 
@@ -316,12 +615,20 @@ export default function AthleteOnboardingPage() {
                     <Textarea
                       className="bg-slate-900 border-slate-700 text-white min-h-32"
                       placeholder="Describe how you plan to use the investment (training, equipment, coaching, etc.)"
+                      value={formData.fundingGoal.fundUses}
+                      onChange={(e) => handleNestedChange("fundingGoal", "fundUses", e.target.value)}
                     />
+                    {fieldErrors["fundingGoal.fundUses"] && (
+                      <p className="text-red-400 text-xs mt-1">{fieldErrors["fundingGoal.fundUses"]}</p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Revenue Share Percentage</label>
-                    <Select>
+                    <Select
+                      value={formData.fundingGoal.revenueSharePercentage}
+                      onValueChange={(v) => handleNestedChange("fundingGoal", "revenueSharePercentage", v)}
+                    >
                       <SelectTrigger className="bg-slate-900 border-slate-700 text-white">
                         <SelectValue placeholder="Select revenue share" />
                       </SelectTrigger>
@@ -333,6 +640,9 @@ export default function AthleteOnboardingPage() {
                         <SelectItem value="custom">Custom arrangement</SelectItem>
                       </SelectContent>
                     </Select>
+                    {fieldErrors["fundingGoal.revenueSharePercentage"] && (
+                      <p className="text-red-400 text-xs mt-1">{fieldErrors["fundingGoal.revenueSharePercentage"]}</p>
+                    )}
                   </div>
 
                   <div>
@@ -340,6 +650,8 @@ export default function AthleteOnboardingPage() {
                     <Textarea
                       className="bg-slate-900 border-slate-700 text-white min-h-24"
                       placeholder="Describe your short-term and long-term career goals"
+                      value={formData.fundingGoal.currentGoalsTimelines}
+                      onChange={(e) => handleNestedChange("fundingGoal", "currentGoalsTimelines", e.target.value)}
                     />
                   </div>
                 </div>
@@ -353,9 +665,27 @@ export default function AthleteOnboardingPage() {
                     <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center">
                       <FileText className="h-8 w-8 mx-auto text-slate-400 mb-2" />
                       <p className="text-slate-400 text-sm">Upload a clear photo of your government-issued ID</p>
-                      <Button variant="outline" className="border-slate-600 text-slate-300 bg-transparent mt-2">
+                      <input
+                        ref={govIdInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleFileChange("governmentId", e.target.files?.[0])}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-slate-600 text-slate-300 bg-transparent mt-2"
+                        onClick={() => govIdInputRef.current?.click()}
+                      >
                         Upload ID
                       </Button>
+                      {formData.governmentId && (
+                        <p className="text-slate-400 text-xs mt-2 truncate">
+                          Selected: {(formData.governmentId as File)?.name}
+                        </p>
+                      )}
+                      {fieldErrors.governmentId && <p className="text-red-400 text-xs mt-2">{fieldErrors.governmentId}</p>}
                     </div>
                   </div>
 
@@ -366,15 +696,38 @@ export default function AthleteOnboardingPage() {
                       <p className="text-slate-400 text-sm">
                         Upload documents proving your athletic status (team roster, competition results, etc.)
                       </p>
-                      <Button variant="outline" className="border-slate-600 text-slate-300 bg-transparent mt-2">
+                      <input
+                        ref={proofInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleFileChange("proofOfAthleteStatus", e.target.files?.[0])}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-slate-600 text-slate-300 bg-transparent mt-2"
+                        onClick={() => proofInputRef.current?.click()}
+                      >
                         Upload Documents
                       </Button>
+                      {formData.proofOfAthleteStatus && (
+                        <p className="text-slate-400 text-xs mt-2 truncate">
+                          Selected: {(formData.proofOfAthleteStatus as File)?.name}
+                        </p>
+                      )}
+                      {fieldErrors.proofOfAthleteStatus && (
+                        <p className="text-red-400 text-xs mt-2">{fieldErrors.proofOfAthleteStatus}</p>
+                      )}
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Felony Conviction</label>
-                    <RadioGroup>
+                    <RadioGroup
+                      value={formData.felonyConviction ? "yes" : "no"}
+                      onValueChange={(v) => handleChange("felonyConviction", v === "yes")}
+                    >
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="yes" id="felony-yes" className="border-slate-600" />
                         <label
@@ -396,18 +749,22 @@ export default function AthleteOnboardingPage() {
                     </RadioGroup>
                   </div>
 
-                  {/* Conditionally render textarea if "Yes" is selected */}
-                  {/* You'll need to manage the state of the radio group to show/hide this */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Please briefly describe the nature of the conviction and the year it occurred
-                    </label>
-                    <Textarea className="bg-slate-900 border-slate-700 text-white min-h-24" placeholder="Description" />
-                  </div>
+                  {formData.felonyConviction && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Please briefly describe the nature of the conviction and the year it occurred
+                      </label>
+                      <Textarea
+                        className="bg-slate-900 border-slate-700 text-white min-h-24"
+                        placeholder="Description"
+                        value={formData.felonyDescription}
+                        onChange={(e) => handleChange("felonyDescription", e.target.value)}
+                      />
+                    </div>
+                  )}
 
                   <p className="text-slate-400 text-sm">
-                    This information is used solely for compliance and verification purposes and will remain
-                    confidential
+                    This information is used solely for compliance and verification purposes and will remain confidential
                   </p>
                   <p className="text-slate-400 text-sm">
                     You may be contacted by an AthloVault agent for additional verification. All profiles undergo a
@@ -418,7 +775,12 @@ export default function AthleteOnboardingPage() {
                     <h4 className="text-white font-semibold">Legal Agreements</h4>
                     <div className="space-y-3">
                       <div className="flex items-start space-x-3">
-                        <Checkbox id="terms" className="border-slate-600 mt-1" />
+                        <Checkbox
+                          id="terms"
+                          className="border-slate-600 mt-1"
+                          checked={!!formData.agreeTerms}
+                          onCheckedChange={(v) => handleChange("agreeTerms", Boolean(v))}
+                        />
                         <label htmlFor="terms" className="text-slate-300 text-sm">
                           I agree to the{" "}
                           <span className="text-amber-400 underline cursor-pointer">Terms of Service</span> and
@@ -445,6 +807,7 @@ export default function AthleteOnboardingPage() {
                           I confirm that I am at least 18 years old and legally able to enter into this agreement.
                         </label>
                       </div>
+                      {fieldErrors.agreeTerms && <p className="text-red-400 text-xs">{fieldErrors.agreeTerms}</p>}
                     </div>
                   </div>
                 </div>
@@ -465,7 +828,7 @@ export default function AthleteOnboardingPage() {
                     <h4 className="text-white font-semibold mb-4">What Happens Next?</h4>
                     <div className="space-y-3 text-left">
                       <div className="flex items-center space-x-3">
-                        <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-slate-900 text-sm font-bold">
+                        <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-slate-9 00 text-sm font-bold">
                           1
                         </div>
                         <span className="text-slate-300">Profile review and verification (24-48 hours)</span>
@@ -489,7 +852,7 @@ export default function AthleteOnboardingPage() {
 
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <Button
-                      onClick={completeOnboarding}
+                      onClick={() => router.push("/athlete/dashboard")}
                       className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
                     >
                       Go to Dashboard
@@ -511,14 +874,18 @@ export default function AthleteOnboardingPage() {
                   <Button
                     variant="outline"
                     onClick={prevStep}
-                    disabled={currentStep === 1}
+                    disabled={currentStep === 1 || loading}
                     className="border-slate-600 text-slate-300 hover:text-white bg-transparent"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Previous
                   </Button>
-                  <Button onClick={nextStep} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold">
-                    {currentStep === 4 ? "Create Profile" : "Next"}
+                  <Button
+                    onClick={nextStep}
+                    disabled={loading}
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
+                  >
+                    {loading ? "Submitting..." : currentStep === 4 ? "Create Profile" : "Next"}
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>

@@ -1,19 +1,19 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { AthleteLayout } from "@/components/athlete-layout"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { updateAthleteProfile } from "@/lib/athlete-update-api"
-import { FileUpload } from "@/components/file-upload"
-import { toast } from "sonner"
+import { useState, useEffect } from "react";
+import { AthleteLayout } from "@/components/athlete-layout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { updateAthleteProfile } from "@/lib/athlete-update-api";
+import { FileUpload } from "@/components/file-upload";
+import { toast } from "@/hooks/use-toast";
 import {
   User,
   Trophy,
@@ -32,125 +32,127 @@ import {
   AlertTriangle,
   Clock,
   Users,
-} from "lucide-react"
+} from "lucide-react";
 
-// Define the structure for nested objects
+// fetch existing profile
+import { getAthleteProfile } from "@/lib/getAthleteProfile";
+
+// ---------- Types ----------
 interface CoachData {
-  name: string
-  email: string
-  phone: string
-  yearOfWorkTogether: string
-  achievementAndBackground: string
+  name: string;
+  email: string;
+  phone: string;
+  yearOfWorkTogether: string;
+  achievementAndBackground: string;
 }
 
 interface SocialMediaData {
-  twitterFollowers: string
-  instagramFollowers: string
-  linkedFollowers: string
-  personalWebsiteUrl: string
+  twitterFollowers: string;
+  instagramFollowers: string;
+  linkedFollowers: string;
+  personalWebsiteUrl: string;
 }
 
 interface FundingGoalData {
-  fundUses: string
-  revenueSharePercentage: string
-  currentGoalsTimelines: string
+  fundUses: string;
+  revenueSharePercentage: string;
+  currentGoalsTimelines: string;
 }
 
-// Define the overall shape of the profileData state
 export interface AthleteProfileState {
   // Basic Information
-  firstName: string
-  lastName: string
-  email: string
-  phone: string
-  dob: string
-  location: string
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dob: string;
+  location: string;
 
   // Athletic Information
-  primarySport: string
-  positionOrSpeciality: string
-  organizationName: string
-  height: string
-  weight: string
-  yearOfExperience: string // ✅ Updated from 'experience'
+  primarySport: string;
+  positionOrSpeciality: string;
+  organizationName: string;
+  height: string;
+  weight: string;
+  yearOfExperience: string;
 
   // Bio and Goals
-  bio: string
-  about: string
-  keyAchievements: string
-  currentPerformance: string
+  bio: string;
+  about: string;
+  keyAchievements: string;
+  currentPerformance: string;
 
   // Social Media
-  website: string
-  instagram: string
-  twitter: string
-  linkedin: string
+  website: string;
+  instagram: string;
+  twitter: string;
+  linkedin: string;
 
   // Legal & Verification
-  felonyConviction: string
-  felonyDescription: string
-  felonyYear: string
+  felonyConviction: string;
+  felonyDescription: string;
+  felonyYear: string;
 
   // Profile Status
-  profileStatus: string
+  profileStatus: string;
 
   // Nested Objects
-  coach: CoachData
-  socialMedia: SocialMediaData
-  fundingGoal: FundingGoalData
+  coach: CoachData;
+  socialMedia: SocialMediaData;
+  fundingGoal: FundingGoalData;
 
   // Additional Metadata
-  id?: number
-  created_at?: number
-  access_token?: string
-  accountType?: string
-  fullName?: string
-  city?: string
-  country?: string
-  coverPhoto?: string
-  governmentId?: string
-  investor?: any
-  isApproved?: boolean
-  isProfileCompleted?: boolean
-  profile_picture?: string
-  proofOfAthleteStatus?: string
-  refresh_token?: string
-  role?: string
-  userId?: number
-  userType?: string
-  zip?: string
-  state?: string
+  id?: number;
+  created_at?: string | number;
+  access_token?: string;
+  accountType?: string;
+  fullName?: string;
+  city?: string;
+  country?: string;
+  coverPhoto?: string;
+  governmentId?: string;
+  investor?: any;
+  isApproved?: boolean;
+  isProfileCompleted?: boolean;
+  profile_picture?: string;
+  proofOfAthleteStatus?: string;
+  refresh_token?: string;
+  role?: string;
+  userId?: number;
+  userType?: string;
+  zip?: string;
+  // (state removed)
 }
 
-// Initial default state matching the above structure
+// Initial default state
 export const initialProfileState: AthleteProfileState = {
   // Basic Information
-  firstName: "Alex",
-  lastName: "Johnson",
-  email: "alex.johnson@email.com",
-  phone: "+1 (555) 123-4567",
-  dob: "2002-03-15",
-  location: "Los Angeles, CA",
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  dob: "",
+  location: "",
 
   // Athletic Information
-  primarySport: "Basketball",
-  positionOrSpeciality: "Point Guard",
-  organizationName: "UCLA Bruins",
-  height: "6'2\"",
-  weight: "185",
-  yearOfExperience: "4", // ✅ Consistent with type
+  primarySport: "",
+  positionOrSpeciality: "",
+  organizationName: "",
+  height: "",
+  weight: "",
+  yearOfExperience: "",
 
   // Bio and Goals
-  bio: "Passionate basketball player with dreams of making it to the NBA. Currently leading my university team with strong performance stats and leadership skills.",
+  bio: "",
   about: "",
-  keyAchievements: "Get drafted in NBA first round, Win NBA Rookie of the Year, Secure major endorsement deal",
+  keyAchievements: "",
   currentPerformance: "",
 
   // Social Media
   website: "",
-  instagram: "@alexjohnson_bball",
-  twitter: "@alexjohnson",
-  linkedin: "alex-johnson-athlete",
+  instagram: "",
+  twitter: "",
+  linkedin: "",
 
   // Legal & Verification
   felonyConviction: "no",
@@ -166,18 +168,18 @@ export const initialProfileState: AthleteProfileState = {
     email: "",
     phone: "",
     yearOfWorkTogether: "",
-    achievementAndBackground: ""
+    achievementAndBackground: "",
   },
   socialMedia: {
     twitterFollowers: "",
     instagramFollowers: "",
     linkedFollowers: "",
-    personalWebsiteUrl: ""
+    personalWebsiteUrl: "",
   },
   fundingGoal: {
     fundUses: "",
     revenueSharePercentage: "",
-    currentGoalsTimelines: ""
+    currentGoalsTimelines: "",
   },
 
   // Additional Metadata
@@ -190,245 +192,322 @@ export const initialProfileState: AthleteProfileState = {
   isProfileCompleted: false,
   profile_picture: "",
   proofOfAthleteStatus: "",
-  state: "",
   userType: "",
   zip: "",
-}
+};
 
-
-
-
-// Utility for deep merging objects (handles nested objects)
+// ---------- Utils ----------
 function deepMerge(target: any, source: any) {
-  const output = { ...target }
+  const output = { ...target };
   if (target && typeof target === "object" && source && typeof source === "object") {
     Object.keys(source).forEach((key) => {
-      if (
-        source[key] &&
-        typeof source[key] === "object" &&
-        !Array.isArray(source[key])
-      ) {
-        if (!(key in output)) {
-          output[key] = {}
-        }
-        output[key] = deepMerge(output[key], source[key])
+      if (source[key] && typeof source[key] === "object" && !Array.isArray(source[key])) {
+        if (!(key in output)) output[key] = {};
+        output[key] = deepMerge(output[key], source[key]);
       } else {
-        output[key] = source[key]
+        output[key] = source[key];
       }
-    })
+    });
   }
-  return output
+  return output;
 }
 
-// Utility to update nested state immutably using a dot-separated path
 const updateNestedState = (obj: any, path: string, value: any) => {
-  const parts = path.split(".")
-  const newObj = structuredClone(obj) // Use structuredClone for deep copy
-  let temp = newObj
-
+  const parts = path.split(".");
+  const newObj = structuredClone(obj);
+  let temp = newObj;
   for (let i = 0; i < parts.length - 1; i++) {
-    const part = parts[i]
+    const part = parts[i];
     if (!temp[part] || typeof temp[part] !== "object" || Array.isArray(temp[part])) {
-      temp[part] = {}
+      temp[part] = {};
     }
-    temp = temp[part]
+    temp = temp[part];
   }
-
-  temp[parts[parts.length - 1]] = value
-  return newObj
-}
-
-
-export default function AthleteSettings() {
-  const [profileData, setProfileData] = useState<AthleteProfileState>(initialProfileState)
-  const [showFelonyDetails, setShowFelonyDetails] = useState(false)
-
- const validateProfile = () => {
-  const errors: string[] = [];
-
-  const requiredFields: Record<string, string> = {
-    "First Name": profileData.firstName ?? "",
-    "Last Name": profileData.lastName ?? "",
-    "Email": profileData.email ?? "",
-    "Phone": profileData.phone ?? "",
-    "Date of Birth": profileData.dob ?? "",
-    "Location": profileData.location ?? "",
-    "Primary Sport": profileData.primarySport ?? "",
-    "Position/Speciality": profileData.positionOrSpeciality ?? "",
-    "Organization Name": profileData.organizationName ?? "",
-    "Height": profileData.height ?? "",
-    "Weight": profileData.weight ?? "",
-    "Years of Experience": profileData.yearOfExperience ?? "",
-    "Instagram Followers": profileData.socialMedia?.instagramFollowers ?? "",
-    "Twitter Followers": profileData.socialMedia?.twitterFollowers ?? "",
-    "LinkedIn Followers": profileData.socialMedia?.linkedFollowers ?? ""
-  };
-
-  if (profileData.felonyConviction === "yes") {
-    requiredFields["Felony Description"] = profileData.felonyDescription ?? "";
-    requiredFields["Felony Year"] = profileData.felonyYear ?? "";
-  }
-
-  for (const [label, value] of Object.entries(requiredFields)) {
-    if (value.toString().trim() === "") {
-      errors.push(`${label} is required`);
-    }
-  }
-
-  const integerFields: Record<string, string> = {
-    "Phone": profileData.phone ?? "",
-    "Height": profileData.height ?? "",
-    "Weight": profileData.weight ?? "",
-    "Years of Experience": profileData.yearOfExperience ?? "",
-    "Instagram Followers": profileData.socialMedia?.instagramFollowers ?? "",
-    "Twitter Followers": profileData.socialMedia?.twitterFollowers ?? "",
-    "LinkedIn Followers": profileData.socialMedia?.linkedFollowers ?? ""
-  };
-
-  if (profileData.felonyConviction === "yes") {
-    integerFields["Felony Year"] = profileData.felonyYear ?? "";
-  }
-
-  for (const [label, value] of Object.entries(integerFields)) {
-    if (value && !/^\d+$/.test(value.toString())) {
-      errors.push(`${label} must be a number`);
-    }
-  }
-
-  return errors;
+  temp[parts[parts.length - 1]] = value;
+  return newObj;
 };
 
+// ---------- Component ----------
+export default function AthleteSettings() {
+  const [profileData, setProfileData] = useState<AthleteProfileState>(initialProfileState);
+  const [showFelonyDetails, setShowFelonyDetails] = useState(false);
 
+  // loading state
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
 
-useEffect(() => {
-  const storedUser = localStorage.getItem("user")
-  if (storedUser) {
-    try {
-      const parsedUser = JSON.parse(storedUser)
-      const mergedData = deepMerge(initialProfileState, parsedUser)
+  // ---------- Normalizer: API -> UI ----------
+  const toStringSafe = (v: any) => (v === null || v === undefined ? "" : String(v));
+const toYesNo = (b: any) => (b === true ? "yes" : "no")
+  const normalizeApiProfile = (api: any): Partial<AthleteProfileState> => {
+    const coach = api.coach || {};
+    const sm = api.socialMedia || {};
+    const fg = api.fundingGoal || {};
 
-      // Set felony visibility once on load
-      if (mergedData.felonyConviction === "yes" || parsedUser.felonyConviction === true) {
-        setShowFelonyDetails(true)
-      } else {
-        setShowFelonyDetails(false)
-      }
+    return {
+      id: api.id,
+      userId: api.userId,
+      created_at: api.created_at,
 
-      setProfileData(mergedData)
-    } catch (err) {
-      console.error("Failed to parse stored user:", err)
-      setProfileData(initialProfileState)
-    } 
-  } else {
-    setProfileData(initialProfileState)
-  }
-}, []) // <-- 👈 ensure this runs only once on component mount
+      // Basic
+      firstName: toStringSafe(api.firstName),
+      lastName: toStringSafe(api.lastName),
+      email: toStringSafe(api.email),
+      phone: toStringSafe(api.phone),
+      dob: toStringSafe(api.dob),
+      location: toStringSafe(api.location),
 
+      // Athletic
+      primarySport: toStringSafe(api.primarySport),
+      positionOrSpeciality: toStringSafe(api.positionOrSpeciality),
+      organizationName: toStringSafe(api.organizationName),
+      height: toStringSafe(api.height),
+      weight: toStringSafe(api.weight),
+      yearOfExperience: toStringSafe(api.yearOfExperience),
 
-  const handleInputChange = (path: string, value: string) => {
-  setProfileData((prev) => {
-    const newState = updateNestedState(prev, path, value)
-    localStorage.setItem("user", JSON.stringify(newState)) // persist
-    return newState
-  })
-}
+      // Bio / Goals
+      bio: toStringSafe(api.biography ?? api.bio),
+      about: toStringSafe(api.about),
+      keyAchievements: toStringSafe(api.keyAchievements),
+      currentPerformance: toStringSafe(api.currentPerformance),
 
+      // Social (top-level if used)
+      website: toStringSafe(api.website),
+      instagram: toStringSafe(api.instagram),
+      twitter: toStringSafe(api.twitter),
+      linkedin: toStringSafe(api.linkedin),
 
-const handleSave = async () => {
-  try {
-    // Get all validation errors
-    const errors = validateProfile();
-    if (errors.length > 0) {
-      toast("Validation Failed", {
-        description: errors.join("\n"),
-      });
-      return;
-    }
+      // Legal
+      felonyConviction: toYesNo(api.felonyConviction),
+      felonyDescription: toStringSafe(api.felonyDescription),
+      felonyYear: toStringSafe(api.felonyYear),
 
-    const token = localStorage.getItem("access_token");
-    if (!token) throw new Error("Unauthorized: No access token found");
+      // Status
+      profileStatus: toStringSafe(api.profileStatus || "under-review"),
 
-    // Utility: ensure numeric fields only contain digits
-    const sanitizeNumber = (val: string) => val?.toString().replace(/\D/g, "") || "";
-
-    const payload = {
-      fullName: `${profileData.firstName} ${profileData.lastName}`,
-      phone: sanitizeNumber(profileData.phone),
-      dob: profileData.dob, // ✅ fixed to match state property
-      location: profileData.location,
-      primarySport: profileData.primarySport,
-      positionOrSpeciality: profileData.positionOrSpeciality,
-      organizationName: profileData.organizationName,
-      yearOfExperience: sanitizeNumber(profileData.yearOfExperience),
-      keyAchievements: profileData.keyAchievements,
-      currentPerformance: profileData.currentPerformance,
-      felonyConviction: profileData.felonyConviction === "yes",
-      felonyDescription: profileData.felonyConviction === "yes" ? profileData.felonyDescription : "",
-      felonyYear: profileData.felonyConviction === "yes" ? sanitizeNumber(profileData.felonyYear) : "",
-      height: sanitizeNumber(profileData.height),
-      weight: sanitizeNumber(profileData.weight),
-      biography: profileData.bio,
-      about: profileData.about,
+      // Nested
       coach: {
-        name: profileData.coach.name,
-        email: profileData.coach.email,
-        phone: sanitizeNumber(profileData.coach.phone),
-        yearOfWorkTogether: sanitizeNumber(profileData.coach.yearOfWorkTogether),
-        achievementAndBackground: profileData.coach.achievementAndBackground,
+        name: toStringSafe(coach.name),
+        email: toStringSafe(coach.email),
+        phone: toStringSafe(coach.phone),
+        yearOfWorkTogether: toStringSafe(coach.yearOfWorkTogether),
+        achievementAndBackground: toStringSafe(coach.achievementAndBackground),
       },
       socialMedia: {
-        twitterFollowers: sanitizeNumber(profileData.socialMedia.twitterFollowers),
-        instagramFollowers: sanitizeNumber(profileData.socialMedia.instagramFollowers),
-        linkedFollowers: sanitizeNumber(profileData.socialMedia.linkedFollowers),
-        personalWebsiteUrl: profileData.socialMedia.personalWebsiteUrl,
+        twitterFollowers: toStringSafe(sm.twitterFollowers),
+        instagramFollowers: toStringSafe(sm.instagramFollowers),
+        linkedFollowers: toStringSafe(sm.linkedFollowers),
+        personalWebsiteUrl: toStringSafe(sm.personalWebsiteUrl),
       },
       fundingGoal: {
-        fundUses: profileData.fundingGoal.fundUses,
-        revenueSharePercentage: sanitizeNumber(profileData.fundingGoal.revenueSharePercentage),
-        currentGoalsTimelines: profileData.fundingGoal.currentGoalsTimelines,
+        fundUses: toStringSafe(fg.fundUses),
+        revenueSharePercentage: toStringSafe(fg.revenueSharePercentage),
+        currentGoalsTimelines: toStringSafe(fg.currentGoalsTimelines),
       },
-      email: profileData.email,
-      ...(profileData.id !== undefined && { id: profileData.id }),
-      ...(profileData.created_at !== undefined && { created_at: profileData.created_at }),
-      ...(profileData.access_token !== undefined && { access_token: profileData.access_token }),
-      ...(profileData.accountType !== undefined && { accountType: profileData.accountType }),
-      ...(profileData.profile_picture !== undefined && { profile_picture: profileData.profile_picture }),
-      ...(profileData.proofOfAthleteStatus !== undefined && {
-        proofOfAthleteStatus: profileData.proofOfAthleteStatus,
-      }),
-      ...(profileData.refresh_token !== undefined && { refresh_token: profileData.refresh_token }),
-      ...(profileData.role !== undefined && { role: profileData.role }),
-      ...(profileData.userId !== undefined && { userId: profileData.userId }),
-      profileStatus: profileData.profileStatus,
-      city: profileData.city || null,
-      country: profileData.country || null,
-      coverPhoto: profileData.coverPhoto || null,
-      governmentId: profileData.governmentId || null,
-      investor: profileData.investor || null,
-      isApproved: profileData.isApproved || false,
-      isProfileCompleted: profileData.isProfileCompleted || false,
-      state: profileData.state || null,
-      userType: profileData.userType || null,
-      zip: profileData.zip || null,
+
+      // Meta
+      city: toStringSafe(api.city),
+      country: toStringSafe(api.country),
+      coverPhoto: toStringSafe(api.coverPhoto),
+      governmentId: toStringSafe(api.governmentId),
+      investor: api.investor ?? null,
+      isApproved: Boolean(api.isApproved),
+      isProfileCompleted: Boolean(api.isProfileCompleted),
+      profile_picture: toStringSafe(api.profile_picture),
+      proofOfAthleteStatus: toStringSafe(api.proofOfAthleteStatus),
+      // state removed
+      userType: toStringSafe(api.userType),
+      zip: toStringSafe(api.zip),
+      accountType: toStringSafe(api.accountType),
+      fullName: toStringSafe(api.fullName),
+      role: toStringSafe(api.role),
+      refresh_token: toStringSafe(api.refresh_token),
+      access_token: toStringSafe(api.access_token),
+    };
+  };
+
+  // Load from API on mount (single source of truth)
+  useEffect(() => {
+    const bootstrap = async () => {
+      try {
+        const res = await getAthleteProfile();
+        if (res?.success && res?.data) {
+          const normalized = normalizeApiProfile(res.data);
+          setProfileData((prev) => deepMerge(prev, normalized));
+          setShowFelonyDetails(normalized.felonyConviction === "yes" || res.data?.felonyConviction === true);
+        }
+      } catch (err: any) {
+        console.error("Failed to fetch athlete profile:", err?.message || err);
+        toast({
+          title: "Could not fetch profile",
+          description: err?.message || "We couldn't load your saved profile. You can still edit and save.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+    bootstrap();
+  }, []);
+
+  // toggle felony details live if user changes the radio
+  useEffect(() => {
+    setShowFelonyDetails(profileData.felonyConviction === "yes");
+  }, [profileData.felonyConviction]);
+
+  const handleInputChange = (path: string, value: string) => {
+    setProfileData((prev) => updateNestedState(prev, path, value));
+  };
+
+  const validateProfile = () => {
+    const errors: string[] = [];
+
+    const requiredFields: Record<string, string> = {
+      "First Name": profileData.firstName ?? "",
+      "Last Name": profileData.lastName ?? "",
+      Email: profileData.email ?? "",
+      Phone: profileData.phone ?? "",
+      "Date of Birth": profileData.dob ?? "",
+      Location: profileData.location ?? "",
+      "Primary Sport": profileData.primarySport ?? "",
+      "Position/Speciality": profileData.positionOrSpeciality ?? "",
+      "Organization Name": profileData.organizationName ?? "",
+      Height: profileData.height ?? "",
+      Weight: profileData.weight ?? "",
+      "Years of Experience": profileData.yearOfExperience ?? "",
+      // If you want followers to be optional, remove the next 3 lines:
+      "Instagram Followers": profileData.socialMedia?.instagramFollowers ?? "",
+      "Twitter Followers": profileData.socialMedia?.twitterFollowers ?? "",
+      "LinkedIn Followers": profileData.socialMedia?.linkedFollowers ?? "",
     };
 
-    console.log("Sending profile update payload:", payload);
-    const response = await updateAthleteProfile(payload, token);
-    console.log("Profile updated:", response);
+    if (profileData.felonyConviction === "yes") {
+      requiredFields["Felony Description"] = profileData.felonyDescription ?? "";
+      requiredFields["Felony Year"] = profileData.felonyYear ?? "";
+    }
 
-    toast("Profile Updated", {
-      description: "Your profile was updated successfully.",
-    });
-  } catch (error: any) {
-    console.error("Profile update failed:", error.message);
+    for (const [label, value] of Object.entries(requiredFields)) {
+      if (value.toString().trim() === "") {
+        errors.push(`${label} is required`);
+      }
+    }
 
-    toast("Profile Update Failed", {
-      description: error.message || "An error occurred while updating your profile.",
-    });
-  }
-};
+    const integerFields: Record<string, string> = {
+      Phone: profileData.phone ?? "",
+      Height: profileData.height ?? "",
+      Weight: profileData.weight ?? "",
+      "Years of Experience": profileData.yearOfExperience ?? "",
+      "Instagram Followers": profileData.socialMedia?.instagramFollowers ?? "",
+      "Twitter Followers": profileData.socialMedia?.twitterFollowers ?? "",
+      "LinkedIn Followers": profileData.socialMedia?.linkedFollowers ?? "",
+    };
 
+    if (profileData.felonyConviction === "yes") {
+      integerFields["Felony Year"] = profileData.felonyYear ?? "";
+    }
 
+    for (const [label, value] of Object.entries(integerFields)) {
+      if (value && !/^\d+$/.test(value.toString())) {
+        errors.push(`${label} must be a number`);
+      }
+    }
+
+    return errors;
+  };
+
+  const handleSave = async () => {
+    try {
+      const errors = validateProfile();
+      if (errors.length > 0) {
+        toast({
+          title: "Validation Failed",
+          description: errors.join("\n"),
+          variant: "destructive",
+        });
+        return;
+      }
+      const token =
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("token") ||
+        localStorage.getItem("auth_token");
+
+      if (!token) {
+        toast({
+          title: "Not signed in",
+          description: "No access token found. Please log in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSavingProfile(true);
+
+      const sanitizeNumber = (val: string) => val?.toString().replace(/\D/g, "") || "";
+
+      const payload = {
+        fullName: `${profileData.firstName} ${profileData.lastName}`,
+        email: profileData.email,
+        phone: sanitizeNumber(profileData.phone),
+        dob: profileData.dob,
+        location: profileData.location,
+        primarySport: profileData.primarySport,
+        positionOrSpeciality: profileData.positionOrSpeciality,
+        organizationName: profileData.organizationName,
+        yearOfExperience: sanitizeNumber(profileData.yearOfExperience),
+        keyAchievements: profileData.keyAchievements,
+        currentPerformance: profileData.currentPerformance,
+        felonyConviction: profileData.felonyConviction === "yes",
+        felonyDescription: profileData.felonyConviction === "yes" ? profileData.felonyDescription : "",
+        felonyYear: profileData.felonyConviction === "yes" ? sanitizeNumber(profileData.felonyYear) : "",
+        height: sanitizeNumber(profileData.height),
+        weight: sanitizeNumber(profileData.weight),
+        biography: profileData.bio,
+        about: profileData.about,
+        coach: {
+          name: profileData.coach.name,
+          email: profileData.coach.email,
+          phone: sanitizeNumber(profileData.coach.phone),
+          yearOfWorkTogether: sanitizeNumber(profileData.coach.yearOfWorkTogether),
+          achievementAndBackground: profileData.coach.achievementAndBackground,
+        },
+        socialMedia: {
+          twitterFollowers: sanitizeNumber(profileData.socialMedia.twitterFollowers),
+          instagramFollowers: sanitizeNumber(profileData.socialMedia.instagramFollowers),
+          linkedFollowers: sanitizeNumber(profileData.socialMedia.linkedFollowers),
+          personalWebsiteUrl: profileData.socialMedia.personalWebsiteUrl,
+        },
+        fundingGoal: {
+          fundUses: profileData.fundingGoal.fundUses,
+          revenueSharePercentage: sanitizeNumber(profileData.fundingGoal.revenueSharePercentage),
+          currentGoalsTimelines: profileData.fundingGoal.currentGoalsTimelines,
+        },
+      };
+
+      await updateAthleteProfile(payload as any, token);
+
+      // Re-fetch truth from server and update the UI
+      const refreshed = await getAthleteProfile();
+      if (refreshed?.success && refreshed?.data) {
+        const normalized = normalizeApiProfile(refreshed.data);
+        setProfileData((prev) => deepMerge(prev, normalized));
+        setShowFelonyDetails(normalized.felonyConviction === "yes" || refreshed.data?.felonyConviction === true);
+      }
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile was updated successfully.",
+      });
+    } catch (error: any) {
+      console.error("Profile update failed:", error?.message);
+      toast({
+        title: "Profile Update Failed",
+        description: error?.message || "An error occurred while updating your profile.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   return (
     <AthleteLayout title="Profile Settings" description="Manage your athlete profile and account settings">
@@ -436,13 +515,20 @@ const handleSave = async () => {
       <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 mb-6">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold text-white">Profile Settings</h1>
-          <p className="text-slate-400">Update your profile information and preferences</p>
+          <p className="text-slate-400">
+            {loadingProfile ? "Loading your profile..." : "Update your profile information and preferences"}
+          </p>
         </div>
-        <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold">
+        <Button
+          onClick={handleSave}
+          disabled={loadingProfile || savingProfile}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+        >
           <Save className="h-4 w-4 mr-2" />
-          Save Changes
+          {savingProfile ? "Saving..." : "Save Changes"}
         </Button>
       </div>
+
       {/* Profile Status Alert */}
       {profileData.profileStatus === "under-review" && (
         <Card className="bg-amber-500/10 border-amber-500/20 mb-6">
@@ -466,6 +552,7 @@ const handleSave = async () => {
           </CardContent>
         </Card>
       )}
+
       <Tabs defaultValue="basic" className="space-y-6">
         <TabsList className="bg-slate-900/50 border-slate-800/50">
           <TabsTrigger value="basic" className="data-[state=active]:bg-slate-800">
@@ -474,6 +561,7 @@ const handleSave = async () => {
           <TabsTrigger value="athletic" className="data-[state=active]:bg-slate-800">
             Athletic Details
           </TabsTrigger>
+          {/* season-stats tab removed */}
           <TabsTrigger value="coach" className="data-[state=active]:bg-slate-800">
             Coach
           </TabsTrigger>
@@ -490,6 +578,8 @@ const handleSave = async () => {
             Photos & Media
           </TabsTrigger>
         </TabsList>
+
+        {/* Basic */}
         <TabsContent value="basic" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -497,9 +587,7 @@ const handleSave = async () => {
                 <User className="h-5 w-5 mr-2" />
                 Basic Information
               </CardTitle>
-              <CardDescription className="text-slate-400">
-                Update your personal information and contact details
-              </CardDescription>
+              <CardDescription className="text-slate-400">Update your personal information and contact details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -529,8 +617,7 @@ const handleSave = async () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-slate-300 flex items-center">
-                    <Mail className="h-4 w-4 mr-2" />
-                    Email Address
+                    <Mail className="h-4 w-4 mr-2" /> Email Address
                   </Label>
                   <Input
                     id="email"
@@ -542,22 +629,27 @@ const handleSave = async () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone" className="text-slate-300 flex items-center">
-                    <Phone className="h-4 w-4 mr-2" />
-                    Phone Number
+                    <Phone className="h-4 w-4 mr-2" /> Phone Number
                   </Label>
                   <Input
                     id="phone"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={profileData.phone || ""}
-                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      handleInputChange("phone", v);
+                    }}
                     className="bg-slate-800/50 border-slate-700 text-white"
+                    placeholder="Digits only"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="dateOfBirth" className="text-slate-300 flex items-center">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Date of Birth
+                    <Calendar className="h-4 w-4 mr-2" /> Date of Birth
                   </Label>
                   <Input
                     id="dateOfBirth"
@@ -569,8 +661,7 @@ const handleSave = async () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="location" className="text-slate-300 flex items-center">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    Location
+                    <MapPin className="h-4 w-4 mr-2" /> Location
                   </Label>
                   <Input
                     id="location"
@@ -584,6 +675,8 @@ const handleSave = async () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Athletic */}
         <TabsContent value="athletic" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -591,9 +684,7 @@ const handleSave = async () => {
                 <Trophy className="h-5 w-5 mr-2" />
                 Athletic Information
               </CardTitle>
-              <CardDescription className="text-slate-400">
-                Provide details about your sport and athletic background
-              </CardDescription>
+              <CardDescription className="text-slate-400">Provide details about your sport and athletic background</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -601,7 +692,10 @@ const handleSave = async () => {
                   <Label htmlFor="sport" className="text-slate-300">
                     Sport
                   </Label>
-                  <Select value={profileData.primarySport || ""} onValueChange={(value) => handleInputChange("primarySport", value)}>
+                  <Select
+                    value={profileData.primarySport || ""}
+                    onValueChange={(value) => handleInputChange("primarySport", value)}
+                  >
                     <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
                       <SelectValue placeholder="Select your sport" />
                     </SelectTrigger>
@@ -612,7 +706,7 @@ const handleSave = async () => {
                       <SelectItem value="Soccer">Soccer</SelectItem>
                       <SelectItem value="Tennis">Tennis</SelectItem>
                       <SelectItem value="Golf">Golf</SelectItem>
-                      <SelectItem value="Track & Field">Track & Field</SelectItem>
+                      <SelectItem value="track and field">Track & Field</SelectItem>
                       <SelectItem value="Swimming">Swimming</SelectItem>
                     </SelectContent>
                   </Select>
@@ -645,14 +739,20 @@ const handleSave = async () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="height" className="text-slate-300">
-                    Height
+                    Height (digits only)
                   </Label>
                   <Input
                     id="height"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={profileData.height || ""}
-                    onChange={(e) => handleInputChange("height", e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      handleInputChange("height", v);
+                    }}
                     className="bg-slate-800/50 border-slate-700 text-white"
-                    placeholder="e.g., 6 feet 2 inches"
+                    placeholder="e.g., 74"
                   />
                 </div>
                 <div className="space-y-2">
@@ -661,8 +761,14 @@ const handleSave = async () => {
                   </Label>
                   <Input
                     id="weight"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={profileData.weight || ""}
-                    onChange={(e) => handleInputChange("weight", e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      handleInputChange("weight", v);
+                    }}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., 185"
                   />
@@ -673,8 +779,14 @@ const handleSave = async () => {
                   </Label>
                   <Input
                     id="experience"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={profileData.yearOfExperience || ""}
-                    onChange={(e) => handleInputChange("yearOfExperience", e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      handleInputChange("yearOfExperience", v);
+                    }}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., 4"
                   />
@@ -683,6 +795,8 @@ const handleSave = async () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Coach */}
         <TabsContent value="coach" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -690,9 +804,7 @@ const handleSave = async () => {
                 <Users className="h-5 w-5 mr-2" />
                 Coach Information
               </CardTitle>
-              <CardDescription className="text-slate-400">
-                Provide details about your current coach or training staff
-              </CardDescription>
+              <CardDescription className="text-slate-400">Provide details about your current coach or training staff</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -714,8 +826,14 @@ const handleSave = async () => {
                   </Label>
                   <Input
                     id="coachYears"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={profileData.coach.yearOfWorkTogether || ""}
-                    onChange={(e) => handleInputChange("coach.yearOfWorkTogether", e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      handleInputChange("coach.yearOfWorkTogether", v);
+                    }}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., 2"
                   />
@@ -741,10 +859,16 @@ const handleSave = async () => {
                   </Label>
                   <Input
                     id="coachPhone"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={profileData.coach.phone || ""}
-                    onChange={(e) => handleInputChange("coach.phone", e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      handleInputChange("coach.phone", v);
+                    }}
                     className="bg-slate-800/50 border-slate-700 text-white"
-                    placeholder="+1 (555) 123-4567"
+                    placeholder="Digits only"
                   />
                 </div>
               </div>
@@ -763,6 +887,8 @@ const handleSave = async () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Goals & Bio */}
         <TabsContent value="goals" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -840,9 +966,14 @@ const handleSave = async () => {
                   </Label>
                   <Input
                     id="revenueSharePercentage"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={profileData.fundingGoal.revenueSharePercentage || ""}
-                    onChange={(e) => handleInputChange("fundingGoal.revenueSharePercentage", e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      handleInputChange("fundingGoal.revenueSharePercentage", v);
+                    }}
                     className="bg-slate-800/50 border-slate-700 text-white"
                     placeholder="e.g., 10"
                   />
@@ -863,6 +994,8 @@ const handleSave = async () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Social */}
         <TabsContent value="social" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -870,9 +1003,7 @@ const handleSave = async () => {
                 <Globe className="h-5 w-5 mr-2" />
                 Social Media & Online Presence
               </CardTitle>
-              <CardDescription className="text-slate-400">
-                Connect your social media accounts to showcase your following
-              </CardDescription>
+              <CardDescription className="text-slate-400">Connect your social media accounts to showcase your following</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -894,19 +1025,19 @@ const handleSave = async () => {
                     <Instagram className="h-4 w-4 mr-2" />
                     Instagram Followers
                   </Label>
-                 <Input
-  id="instagramFollowers"
-  type="text"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={profileData.socialMedia.instagramFollowers || ""}
-  onChange={(e) => {
-    const value = e.target.value.replace(/\D/g, ""); // only digits
-    handleInputChange("socialMedia.instagramFollowers", value);
-  }}
-  className="bg-slate-800/50 border-slate-700 text-white"
-  placeholder="e.g., 50000"
-/>
+                  <Input
+                    id="instagramFollowers"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={profileData.socialMedia.instagramFollowers || ""}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      handleInputChange("socialMedia.instagramFollowers", value);
+                    }}
+                    className="bg-slate-800/50 border-slate-700 text-white"
+                    placeholder="e.g., 50000"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="twitterFollowers" className="text-slate-300 flex items-center">
@@ -914,18 +1045,18 @@ const handleSave = async () => {
                     Twitter Followers
                   </Label>
                   <Input
-  id="twitterFollowers"
-  type="text"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={profileData.socialMedia.twitterFollowers || ""}
-  onChange={(e) => {
-    const value = e.target.value.replace(/\D/g, "");
-    handleInputChange("socialMedia.twitterFollowers", value);
-  }}
-  className="bg-slate-800/50 border-slate-700 text-white"
-  placeholder="e.g., 100000"
-/>
+                    id="twitterFollowers"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={profileData.socialMedia.twitterFollowers || ""}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      handleInputChange("socialMedia.twitterFollowers", value);
+                    }}
+                    className="bg-slate-800/50 border-slate-700 text-white"
+                    placeholder="e.g., 100000"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="linkedFollowers" className="text-slate-300 flex items-center">
@@ -933,23 +1064,25 @@ const handleSave = async () => {
                     LinkedIn Followers
                   </Label>
                   <Input
-  id="linkedFollowers"
-  type="text"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={profileData.socialMedia.linkedFollowers || ""}
-  onChange={(e) => {
-    const value = e.target.value.replace(/\D/g, "");
-    handleInputChange("socialMedia.linkedFollowers", value);
-  }}
-  className="bg-slate-800/50 border-slate-700 text-white"
-  placeholder="e.g., 2000"
-/>
+                    id="linkedFollowers"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={profileData.socialMedia.linkedFollowers || ""}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      handleInputChange("socialMedia.linkedFollowers", value);
+                    }}
+                    className="bg-slate-800/50 border-slate-700 text-white"
+                    placeholder="e.g., 2000"
+                  />
                 </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Legal */}
         <TabsContent value="legal" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -957,9 +1090,7 @@ const handleSave = async () => {
                 <Shield className="h-5 w-5 mr-2" />
                 Legal & Verification
               </CardTitle>
-              <CardDescription className="text-slate-400">
-                Complete verification requirements for platform compliance
-              </CardDescription>
+              <CardDescription className="text-slate-400">Complete verification requirements for platform compliance</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Felony Conviction Section */}
@@ -1010,8 +1141,14 @@ const handleSave = async () => {
                         </Label>
                         <Input
                           id="felonyYear"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={profileData.felonyYear || ""}
-                          onChange={(e) => handleInputChange("felonyYear", e.target.value)}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, "");
+                            handleInputChange("felonyYear", v);
+                          }}
                           className="bg-slate-800/50 border-slate-700 text-white"
                           placeholder="e.g., 2020"
                         />
@@ -1038,6 +1175,7 @@ const handleSave = async () => {
                   </div>
                 </div>
               </div>
+
               {/* Terms and Conditions */}
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
@@ -1063,6 +1201,8 @@ const handleSave = async () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Media */}
         <TabsContent value="media" className="space-y-6">
           <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
             <CardHeader>
@@ -1113,5 +1253,5 @@ const handleSave = async () => {
         </TabsContent>
       </Tabs>
     </AthleteLayout>
-  )
+  );
 }

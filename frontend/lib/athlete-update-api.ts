@@ -3,6 +3,7 @@ import { API_BASE_URL } from "./api";
 // Keeping for type hints; real request uses FormData
 export interface AthleteProfileUpdatePayload {
   fullName: string;
+  email: string;
   phone: string;
   dob: string;
   location: string;
@@ -14,6 +15,7 @@ export interface AthleteProfileUpdatePayload {
   currentPerformance?: string;
   felonyConviction: boolean;
   felonyDescription?: string;
+  felonyYear?: string;
   height: string;
   weight: string;
   biography?: string;
@@ -45,17 +47,22 @@ export const updateAthleteProfile = async (
   const formData = new FormData();
 
   formData.append("fullName", data.fullName);
+  formData.append("email", data.email);
   formData.append("phone", data.phone);
   formData.append("dob", data.dob);
   formData.append("location", data.location);
   formData.append("primarySport", data.primarySport);
+
   if (data.positionOrSpeciality) formData.append("positionOrSpeciality", data.positionOrSpeciality);
   if (data.organizationName) formData.append("organizationName", data.organizationName);
   if (data.yearOfExperience) formData.append("yearOfExperience", data.yearOfExperience);
   if (data.keyAchievements) formData.append("keyAchievements", data.keyAchievements);
   if (data.currentPerformance) formData.append("currentPerformance", data.currentPerformance);
+
   formData.append("felonyConviction", String(data.felonyConviction));
   if (data.felonyDescription) formData.append("felonyDescription", data.felonyDescription);
+  if (data.felonyYear) formData.append("felonyYear", data.felonyYear);
+
   formData.append("height", data.height);
   formData.append("weight", data.weight);
   if (data.biography) formData.append("biography", data.biography);
@@ -86,8 +93,6 @@ export const updateAthleteProfile = async (
   if (data.fundingGoal.currentGoalsTimelines)
     formData.append("fundingGoal[currentGoalsTimelines]", data.fundingGoal.currentGoalsTimelines);
 
-  console.log("📤 Sending FormData update payload:", Object.fromEntries(formData.entries()));
-
   const res = await fetch(`${API_BASE_URL}/athlete/profile`, {
     method: "PUT",
     headers: {
@@ -102,7 +107,5 @@ export const updateAthleteProfile = async (
     throw new Error(errorData.message || "Profile update failed");
   }
 
-  const responseData = await res.json();
-  console.log("✅ Profile update response:", responseData);
-  return responseData;
+  return res.json();
 };

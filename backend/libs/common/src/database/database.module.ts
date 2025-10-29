@@ -75,7 +75,7 @@ import { TypeOrmCustomLogger } from '@app/common';
                 ),
           ],
           connectTimeout: 100000,
-          synchronize:false,
+          synchronize: false,
           logger: customLogger,
         };
       },

@@ -152,6 +152,7 @@ export class AthleteService {
       this.logger.log('Athlete User Profile Update Successfully.');
     }
     // this.patchDefined(athlete, dto);
+    console.log(dto?.felonyConviction)
     athlete.primarySport = dto?.primarySport ?? athlete.primarySport;
     athlete.dob = dto?.dob ?? athlete.dob;
     athlete.positionOrSpeciality =

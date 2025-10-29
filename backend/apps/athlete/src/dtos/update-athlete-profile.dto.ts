@@ -7,7 +7,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class CoachDto {
   @IsOptional()
@@ -122,10 +122,24 @@ export class UpdateAthleteProfileDto {
   @IsString()
   proofOfAthleteStatus?: string;
 
-  @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  felonyConviction?: boolean;
+@IsOptional()
+@Transform(({ value }) => {
+  // Handle undefined/null
+  if (value === undefined || value === null) return value;
+  
+  // Handle strings from form-data
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+  }
+  
+  // Handle boolean
+  if (typeof value === 'boolean') return value;
+  
+  return value;
+})
+@IsBoolean()
+felonyConviction?: boolean;
 
   @IsOptional()
   @IsString()
